@@ -14,9 +14,25 @@ class APIClient: ObservableObject {
     @Published var errorMessage: String?
     @Published var toastMessage: String?
 
+    static let defaultURL = "https://secondary-ranking-buffer-printers.trycloudflare.com"
+
     init() {
-        self.serverURL = UserDefaults.standard.string(forKey: "ig_server_url")
-            ?? "https://secondary-ranking-buffer-printers.trycloudflare.com"
+        let saved = UserDefaults.standard.string(forKey: "ig_server_url")
+        // Si el valor guardado es un túnel trycloudflare antiguo que ya caducó, restablecer al activo
+        if let saved = saved, saved.contains(".trycloudflare.com") && saved != APIClient.defaultURL {
+            self.serverURL = APIClient.defaultURL
+            UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
+        } else if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.serverURL = saved
+        } else {
+            self.serverURL = APIClient.defaultURL
+        }
+    }
+
+    func resetToDefaultServer() {
+        self.serverURL = APIClient.defaultURL
+        UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
+        Task { await checkStatus() }
     }
 
     func proxyURL(for rawURL: String, filename: String = "media.jpg") -> URL? {
@@ -35,6 +51,17 @@ class APIClient: ObservableObject {
             let decoded = try JSONDecoder().decode(SessionStatus.self, from: data)
             self.sessionStatus = decoded
         } catch {
+            // Si falló por host no encontrado y no estábamos en defaultURL, auto-recuperar con defaultURL
+            if serverURL != APIClient.defaultURL {
+                self.serverURL = APIClient.defaultURL
+                UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
+                if let fallbackURL = URL(string: "\(APIClient.defaultURL)/api/status"),
+                   let (data2, _) = try? await URLSession.shared.data(from: fallbackURL),
+                   let decoded2 = try? JSONDecoder().decode(SessionStatus.self, from: data2) {
+                    self.sessionStatus = decoded2
+                    return
+                }
+            }
             print("Status check error: \(error)")
         }
     }

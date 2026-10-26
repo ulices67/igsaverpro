@@ -1281,6 +1281,12 @@ struct LoginSheetView: View {
                     TextField("https://...", text: $api.serverURL)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
+                    Button("⚡ Restablecer al Servidor Activo") {
+                        api.resetToDefaultServer()
+                        statusFeedback = "Servidor restablecido: \(api.serverURL)"
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.pink)
                 }
 
                 Section("Método de Inicio de Sesión") {
