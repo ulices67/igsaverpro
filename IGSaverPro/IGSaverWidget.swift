@@ -8,7 +8,7 @@ struct IGSaverEntry: TimelineEntry {
 }
 
 struct IGSaverWidgetProvider: TimelineProvider {
-    let serverURL = "https://opportunity-manual-affiliate-affiliate.trycloudflare.com"
+    let serverURL = "https://sam-contracts-merchandise-contractor.trycloudflare.com"
 
     func placeholder(in context: Context) -> IGSaverEntry {
         IGSaverEntry(date: Date(), loggedIn: true, username: "Conectado")

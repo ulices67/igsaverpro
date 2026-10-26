@@ -12,13 +12,17 @@ struct ContentView: View {
     @State private var nextCursor: String = ""
     @State private var directItems: [StoryItem] = []
 
-    // Visor Anónimo de Historias y Destacadas
+    // Modal de Destacadas (Fila / Cuadrícula / Selección Múltiple)
+    @State private var showingHighlightSheet = false
+    @State private var currentHighlightDetail: HighlightDetailResponse?
+
+    // Visor Anónimo de Historias (Una por una)
     @State private var showingStoryViewer = false
     @State private var storyQueue: [StoryItem] = []
     @State private var storyIndex = 0
     @State private var storyHeaderTitle = ""
 
-    // Hoja de Login y Detalle de Post
+    // Hoja de Login y Detalle de Publicación
     @State private var showingLoginSheet = false
     @State private var selectedPost: PostItem?
 
@@ -55,6 +59,21 @@ struct ContentView: View {
             }
             .sheet(item: $selectedPost) { post in
                 PostDetailSheetView(post: post, username: resolvedProfile?.user?.username ?? "user", api: api)
+            }
+            .sheet(isPresented: $showingHighlightSheet) {
+                if let hl = currentHighlightDetail {
+                    HighlightExplorerSheetView(
+                        highlight: hl,
+                        api: api,
+                        onPlayStories: { items, title in
+                            storyQueue = items
+                            storyIndex = 0
+                            storyHeaderTitle = title
+                            showingHighlightSheet = false
+                            showingStoryViewer = true
+                        }
+                    )
+                }
             }
             .fullScreenCover(isPresented: $showingStoryViewer) {
                 AnonymousStoryPlayerView(
@@ -121,7 +140,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Search & URL Card
+    // MARK: - Search & Input Card
     private var searchAndInputCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("🕵️‍♂️ Modo 100% Anónimo — No apareces en vistos")
@@ -198,7 +217,7 @@ struct ContentView: View {
         .cornerRadius(20)
     }
 
-    // MARK: - Search Results Dropdown
+    // MARK: - Search Results
     private var searchResultsList: some View {
         VStack(spacing: 0) {
             ForEach(searchResults) { u in
@@ -257,7 +276,7 @@ struct ContentView: View {
         .cornerRadius(16)
     }
 
-    // MARK: - Full Profile Explorer (HD Photo + Anonymous Stories + Highlights + Grid)
+    // MARK: - Profile Section
     private func profileExplorerSection(user: ProfileUser, prof: ResolveResponse) -> some View {
         let stories = prof.stories ?? []
         let highlights = prof.highlights ?? []
@@ -320,7 +339,6 @@ struct ContentView: View {
                     .foregroundColor(.white.opacity(0.85))
             }
 
-            // Botones Historias Anónimas y Foto de Perfil HD
             HStack(spacing: 10) {
                 Button {
                     if hasStories {
@@ -362,7 +380,7 @@ struct ContentView: View {
                 }
             }
 
-            // Bandeja de Destacadas (Highlights)
+            // Bandeja de Destacadas
             if !highlights.isEmpty {
                 Text("✨ HISTORIAS DESTACADAS (\(highlights.count))")
                     .font(.system(size: 11, weight: .bold))
@@ -372,7 +390,7 @@ struct ContentView: View {
                     HStack(spacing: 14) {
                         ForEach(highlights) { hl in
                             Button {
-                                Task { await openHighlight(hl) }
+                                Task { await openHighlightExplorer(hl) }
                             } label: {
                                 VStack(spacing: 5) {
                                     AsyncImage(url: api.proxyURL(for: hl.cover_url, filename: "hl_\(hl.pk).jpg")) { img in
@@ -396,7 +414,7 @@ struct ContentView: View {
                 }
             }
 
-            // Cuadrícula de Publicaciones 3x3
+            // Publicaciones 3x3
             if !profilePosts.isEmpty {
                 Text("📸 PUBLICACIONES (\(profilePosts.count) de \(user.media_count))")
                     .font(.system(size: 11, weight: .bold))
@@ -533,19 +551,17 @@ struct ContentView: View {
         }
     }
 
-    private func openHighlight(_ hl: HighlightTrayItem) async {
+    private func openHighlightExplorer(_ hl: HighlightTrayItem) async {
         api.isLoading = true
         defer { api.isLoading = false }
         do {
             let detail = try await api.fetchHighlight(pk: hl.pk)
             if detail.items.isEmpty {
-                api.toastMessage = "Esta destacada no tiene elementos."
+                api.toastMessage = "Esta destacada no tiene historias activas."
                 return
             }
-            storyQueue = detail.items
-            storyIndex = 0
-            storyHeaderTitle = "✨ \(detail.title) (@\(detail.username))"
-            showingStoryViewer = true
+            currentHighlightDetail = detail
+            showingHighlightSheet = true
         } catch {
             api.errorMessage = error.localizedDescription
         }
@@ -563,7 +579,168 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Visor Anónimo de Historias y Destacadas
+// MARK: - Explorador de Destacadas (Ver en Fila / Modo Historias / Selección Múltiple)
+struct HighlightExplorerSheetView: View {
+    let highlight: HighlightDetailResponse
+    @ObservedObject var api: APIClient
+    let onPlayStories: ([StoryItem], String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedIndices: Set<Int> = []
+    @State private var isDownloadingBatch = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Button {
+                        onPlayStories(highlight.items, "✨ \(highlight.title) (@\(highlight.username))")
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.circle.fill")
+                            Text("Ver una por una")
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.pink.opacity(0.2))
+                        .foregroundColor(.pink)
+                        .cornerRadius(10)
+                    }
+
+                    Button {
+                        if selectedIndices.count == highlight.items.count {
+                            selectedIndices.removeAll()
+                        } else {
+                            selectedIndices = Set(highlight.items.indices)
+                        }
+                    } label: {
+                        Text(selectedIndices.count == highlight.items.count ? "Deseleccionar" : "Seleccionar todas")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+                HStack {
+                    Text("\(selectedIndices.count) de \(highlight.items.count) seleccionadas")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button {
+                        Task { await downloadSelectedItems() }
+                    } label: {
+                        HStack {
+                            if isDownloadingBatch { ProgressView().tint(.white) }
+                            Text(selectedIndices.isEmpty ? "Guardar selección" : "⬇️ Guardar (\(selectedIndices.count))")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(selectedIndices.isEmpty ? Color.gray.opacity(0.3) : Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                    .disabled(selectedIndices.isEmpty || isDownloadingBatch)
+                }
+                .padding(.horizontal, 16)
+
+                // Cuadrícula 2 columnas de historias
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                        ForEach(highlight.items.indices, id: \.self) { idx in
+                            let item = highlight.items[idx]
+                            let isSelected = selectedIndices.contains(idx)
+
+                            VStack(spacing: 0) {
+                                ZStack(alignment: .topTrailing) {
+                                    AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
+                                        img.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.gray.opacity(0.2)
+                                    }
+                                    .frame(height: 190)
+                                    .clipped()
+                                    .onTapGesture {
+                                        onPlayStories(Array(highlight.items[idx...]), "✨ \(highlight.title)")
+                                    }
+
+                                    // Casilla de verificación
+                                    Button {
+                                        if isSelected {
+                                            selectedIndices.remove(idx)
+                                        } else {
+                                            selectedIndices.insert(idx)
+                                        }
+                                    } label: {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(isSelected ? Color.pink : Color.black.opacity(0.6))
+                                                .frame(width: 26, height: 26)
+                                            if isSelected {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 14, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                        }
+                                        .padding(8)
+                                    }
+                                }
+
+                                HStack {
+                                    Text(item.media_type == "video" ? "▶ Video" : "📷 Foto")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                    Button {
+                                        Task { await api.saveMediaToPhotos(item: item) }
+                                    } label: {
+                                        Image(systemName: "square.and.arrow.down")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.pink)
+                                    }
+                                }
+                                .padding(8)
+                                .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+                            }
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(isSelected ? Color.pink : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                            )
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+            .background(Color(red: 0.05, green: 0.05, blue: 0.08))
+            .navigationTitle("✨ \(highlight.title)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func downloadSelectedItems() async {
+        isDownloadingBatch = true
+        defer { isDownloadingBatch = false }
+        for idx in selectedIndices {
+            let item = highlight.items[idx]
+            await api.saveMediaToPhotos(item: item)
+        }
+        api.toastMessage = "✅ Se guardaron \(selectedIndices.count) historia(s) en Fotos."
+    }
+}
+
+// MARK: - Visor Anónimo de Historias (Una por una a pantalla completa)
 struct AnonymousStoryPlayerView: View {
     let items: [StoryItem]
     @Binding var currentIndex: Int
@@ -589,7 +766,6 @@ struct AnonymousStoryPlayerView: View {
                     }
                     .padding(.horizontal, 12)
 
-                    // Cabecera
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(title) (\(currentIndex + 1)/\(items.count))")
@@ -610,7 +786,7 @@ struct AnonymousStoryPlayerView: View {
 
                     Spacer()
 
-                    // Contenido Multimedia + Navegación Táctil
+                    // Contenido Multimedia sin pantalla negra
                     ZStack {
                         if current.media_type == "video", let vURL = api.proxyURL(for: current.url, filename: current.filename) {
                             VideoPlayer(player: AVPlayer(url: vURL))
@@ -642,7 +818,6 @@ struct AnonymousStoryPlayerView: View {
 
                     Spacer()
 
-                    // Botón Guardar en Fotos
                     Button {
                         Task { await api.saveMediaToPhotos(item: current) }
                     } label: {
@@ -664,7 +839,142 @@ struct AnonymousStoryPlayerView: View {
     }
 }
 
-// MARK: - Hoja de Inicio de Sesión
+// MARK: - Hoja Detalle de Publicación (Con Selección Múltiple)
+struct PostDetailSheetView: View {
+    let post: PostItem
+    let username: String
+    @ObservedObject var api: APIClient
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedIndices: Set<Int> = []
+    @State private var isDownloading = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                HStack {
+                    Button {
+                        if selectedIndices.count == post.items.count {
+                            selectedIndices.removeAll()
+                        } else {
+                            selectedIndices = Set(post.items.indices)
+                        }
+                    } label: {
+                        Text(selectedIndices.count == post.items.count ? "Deseleccionar" : "Seleccionar todas")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.pink)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        Task { await downloadSelected() }
+                    } label: {
+                        HStack {
+                            if isDownloading { ProgressView().tint(.white) }
+                            Text(selectedIndices.isEmpty ? "Guardar selección" : "⬇️ Guardar (\(selectedIndices.count))")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(selectedIndices.isEmpty ? Color.gray.opacity(0.3) : Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .disabled(selectedIndices.isEmpty || isDownloading)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(post.items.indices, id: \.self) { idx in
+                            let item = post.items[idx]
+                            let isSelected = selectedIndices.contains(idx)
+
+                            VStack(spacing: 10) {
+                                HStack {
+                                    Text("Elemento #\(idx + 1) (\(item.media_type.uppercased()))")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Button {
+                                        if isSelected { selectedIndices.remove(idx) }
+                                        else { selectedIndices.insert(idx) }
+                                    } label: {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(isSelected ? Color.pink : Color.white.opacity(0.1))
+                                                .frame(width: 24, height: 24)
+                                            if isSelected {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
+                                    img.resizable().scaledToFit()
+                                } placeholder: {
+                                    ProgressView().frame(height: 220)
+                                }
+                                .cornerRadius(12)
+
+                                Button {
+                                    Task { await api.saveMediaToPhotos(item: item) }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "square.and.arrow.down.fill")
+                                        Text("Guardar este archivo en Fotos")
+                                    }
+                                    .font(.system(size: 14, weight: .bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                                }
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(isSelected ? Color.pink : Color.clear, lineWidth: 2)
+                            )
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+            .background(Color(red: 0.05, green: 0.05, blue: 0.08))
+            .navigationTitle("@\(username) · \(post.items.count) archivo(s)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+            .onAppear {
+                selectedIndices = Set(post.items.indices)
+            }
+        }
+    }
+
+    private func downloadSelected() async {
+        isDownloading = true
+        defer { isDownloading = false }
+        for idx in selectedIndices {
+            let item = post.items[idx]
+            await api.saveMediaToPhotos(item: item)
+        }
+        api.toastMessage = "✅ Se guardaron \(selectedIndices.count) archivo(s) en Fotos."
+    }
+}
+
+// MARK: - Hoja de Login
 struct LoginSheetView: View {
     @ObservedObject var api: APIClient
     @Environment(\.dismiss) private var dismiss
@@ -753,58 +1063,6 @@ struct LoginSheetView: View {
             dismiss()
         } catch {
             statusFeedback = "❌ \(error.localizedDescription)"
-        }
-    }
-}
-
-// MARK: - Hoja Detalle de Publicación del Grid
-struct PostDetailSheetView: View {
-    let post: PostItem
-    let username: String
-    @ObservedObject var api: APIClient
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    ForEach(post.items) { item in
-                        VStack(spacing: 10) {
-                            AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
-                                img.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView().frame(height: 220)
-                            }
-                            .cornerRadius(12)
-
-                            Button {
-                                Task { await api.saveMediaToPhotos(item: item) }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "square.and.arrow.down.fill")
-                                    Text("Guardar en Fotos")
-                                }
-                                .font(.system(size: 15, weight: .bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Color.pink)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                            }
-                        }
-                        .padding(12)
-                        .background(Color.white.opacity(0.06))
-                        .cornerRadius(16)
-                    }
-                }
-                .padding(16)
-            }
-            .navigationTitle("@\(username) · \(post.items.count) archivo(s)")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { dismiss() }
-                }
-            }
         }
     }
 }
