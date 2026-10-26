@@ -16,7 +16,7 @@ class APIClient: ObservableObject {
 
     init() {
         self.serverURL = UserDefaults.standard.string(forKey: "ig_server_url")
-            ?? "https://sam-contracts-merchandise-contractor.trycloudflare.com"
+            ?? "https://secondary-ranking-buffer-printers.trycloudflare.com"
     }
 
     func proxyURL(for rawURL: String, filename: String = "media.jpg") -> URL? {

@@ -16,7 +16,7 @@ struct ContentView: View {
     @State private var showingHighlightSheet = false
     @State private var currentHighlightDetail: HighlightDetailResponse?
 
-    // Visor Anónimo de Historias (Una por una)
+    // Visor Anónimo de Historias del perfil
     @State private var showingStoryViewer = false
     @State private var storyQueue: [StoryItem] = []
     @State private var storyIndex = 0
@@ -25,6 +25,65 @@ struct ContentView: View {
     // Hoja de Login y Detalle de Publicación
     @State private var showingLoginSheet = false
     @State private var selectedPost: PostItem?
+
+    // Persistencia de Favoritos y Búsquedas Recientes
+    @AppStorage("ig_fav_accounts") private var favAccountsJSON: String = "[]"
+    @AppStorage("ig_recent_searches") private var recentSearchesJSON: String = "[]"
+
+    private var favoriteAccounts: [SavedAccount] {
+        get {
+            guard let data = favAccountsJSON.data(using: .utf8),
+                  let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
+            return list
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue),
+               let str = String(data: data, encoding: .utf8) {
+                favAccountsJSON = str
+            }
+        }
+    }
+
+    private var recentSearches: [SavedAccount] {
+        get {
+            guard let data = recentSearchesJSON.data(using: .utf8),
+                  let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
+            return list
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue),
+               let str = String(data: data, encoding: .utf8) {
+                recentSearchesJSON = str
+            }
+        }
+    }
+
+    private func isFavorite(username: String) -> Bool {
+        favoriteAccounts.contains(where: { $0.username.lowercased() == username.lowercased() })
+    }
+
+    private func toggleFavorite(account: SavedAccount) {
+        var list = favoriteAccounts
+        if let idx = list.firstIndex(where: { $0.username.lowercased() == account.username.lowercased() }) {
+            list.remove(at: idx)
+        } else {
+            list.insert(account, at: 0)
+            if list.count > 25 { list.removeLast() }
+        }
+        favoriteAccounts = list
+    }
+
+    private func addRecentSearch(account: SavedAccount) {
+        var list = recentSearches
+        list.removeAll(where: { $0.username.lowercased() == account.username.lowercased() })
+        list.insert(account, at: 0)
+        if list.count > 15 { list.removeLast() }
+        recentSearches = list
+    }
+
+    private func clearRecentSearches() {
+        recentSearches = []
+    }
 
     var body: some View {
         NavigationStack {
@@ -35,6 +94,17 @@ struct ContentView: View {
                     VStack(spacing: 16) {
                         headerBar
                         searchAndInputCard
+
+                        // Sección de Favoritos
+                        if !favoriteAccounts.isEmpty {
+                            favoritesTrayView
+                        }
+
+                        // Sección de Búsquedas Recientes
+                        if !recentSearches.isEmpty {
+                            recentSearchesTrayView
+                        }
+
                         if !searchResults.isEmpty {
                             searchResultsList
                         }
@@ -64,14 +134,7 @@ struct ContentView: View {
                 if let hl = currentHighlightDetail {
                     HighlightExplorerSheetView(
                         highlight: hl,
-                        api: api,
-                        onPlayStories: { items, title in
-                            storyQueue = items
-                            storyIndex = 0
-                            storyHeaderTitle = title
-                            showingHighlightSheet = false
-                            showingStoryViewer = true
-                        }
+                        api: api
                     )
                 }
             }
@@ -217,6 +280,108 @@ struct ContentView: View {
         .cornerRadius(20)
     }
 
+    // MARK: - Bandeja de Favoritos
+    private var favoritesTrayView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "star.fill")
+                    .foregroundColor(.yellow)
+                    .font(.system(size: 12))
+                Text("CUENTAS FAVORITAS (\(favoriteAccounts.count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.yellow)
+                Spacer()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(favoriteAccounts) { fav in
+                        Button {
+                            searchText = "@\(fav.username)"
+                            searchResults = []
+                            Task { await handleResolve() }
+                        } label: {
+                            VStack(spacing: 4) {
+                                AsyncImage(url: api.proxyURL(for: fav.profile_pic, filename: "\(fav.username)_fav.jpg")) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.yellow.opacity(0.2)
+                                }
+                                .frame(width: 54, height: 54)
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle().stroke(Color.yellow, lineWidth: 2)
+                                )
+
+                                Text("@\(fav.username)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 66)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+        .cornerRadius(16)
+    }
+
+    // MARK: - Bandeja de Búsquedas Recientes
+    private var recentSearchesTrayView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 12))
+                Text("BÚSQUEDAS RECIENTES")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+                Spacer()
+                Button("Borrar") {
+                    clearRecentSearches()
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.pink)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(recentSearches) { item in
+                        Button {
+                            searchText = "@\(item.username)"
+                            searchResults = []
+                            Task { await handleResolve() }
+                        } label: {
+                            HStack(spacing: 7) {
+                                AsyncImage(url: api.proxyURL(for: item.profile_pic, filename: "\(item.username)_rec.jpg")) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.gray.opacity(0.2)
+                                }
+                                .frame(width: 26, height: 26)
+                                .clipShape(Circle())
+
+                                Text("@\(item.username)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(18)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(red: 0.08, green: 0.08, blue: 0.12))
+        .cornerRadius(16)
+    }
+
     // MARK: - Search Results
     private var searchResultsList: some View {
         VStack(spacing: 0) {
@@ -281,6 +446,12 @@ struct ContentView: View {
         let stories = prof.stories ?? []
         let highlights = prof.highlights ?? []
         let hasStories = !stories.isEmpty
+        let currentAccount = SavedAccount(
+            username: user.username,
+            full_name: user.full_name,
+            profile_pic: user.profile_pic_hd
+        )
+        let isFav = isFavorite(username: user.username)
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 16) {
@@ -337,6 +508,27 @@ struct ContentView: View {
                 Text(user.biography)
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.85))
+            }
+
+            // Botón Favorito
+            Button {
+                toggleFavorite(account: currentAccount)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isFav ? "star.fill" : "star")
+                        .foregroundColor(isFav ? .yellow : .white)
+                    Text(isFav ? "En Favoritos" : "⭐ Añadir a Favoritos")
+                        .font(.system(size: 13, weight: .bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(isFav ? Color.yellow.opacity(0.18) : Color.white.opacity(0.08))
+                .foregroundColor(isFav ? .yellow : .white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isFav ? Color.yellow.opacity(0.4) : Color.white.opacity(0.12), lineWidth: 1)
+                )
             }
 
             HStack(spacing: 10) {
@@ -414,23 +606,19 @@ struct ContentView: View {
                 }
             }
 
-            // Publicaciones 3x3
+            // Grid de Publicaciones
             if !profilePosts.isEmpty {
-                Text("📸 PUBLICACIONES (\(profilePosts.count) de \(user.media_count))")
+                Text("PUBLICACIONES (\(profilePosts.count))")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.gray)
 
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 4),
-                    GridItem(.flexible(), spacing: 4),
-                    GridItem(.flexible(), spacing: 4)
-                ], spacing: 4) {
-                    ForEach(profilePosts) { post in
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                    ForEach(profilePosts) { p in
                         Button {
-                            selectedPost = post
+                            selectedPost = p
                         } label: {
                             ZStack(alignment: .topTrailing) {
-                                AsyncImage(url: api.proxyURL(for: post.thumbnail, filename: "thumb_\(post.pk).jpg")) { img in
+                                AsyncImage(url: api.proxyURL(for: p.thumbnail, filename: "\(p.code).jpg")) { img in
                                     img.resizable().scaledToFill()
                                 } placeholder: {
                                     Color.gray.opacity(0.2)
@@ -438,22 +626,22 @@ struct ContentView: View {
                                 .frame(height: 115)
                                 .clipped()
 
-                                if post.media_type == "carousel" {
-                                    Text("❐ \(post.items.count)")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .padding(4)
-                                        .background(Color.black.opacity(0.65))
+                                if p.items.count > 1 {
+                                    Image(systemName: "square.fill.on.square.fill")
+                                        .font(.system(size: 11))
                                         .foregroundColor(.white)
-                                        .cornerRadius(5)
                                         .padding(5)
-                                } else if post.media_type == "video" {
-                                    Text("▶")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .background(Color.black.opacity(0.6))
+                                        .clipShape(Circle())
                                         .padding(4)
-                                        .background(Color.black.opacity(0.65))
+                                } else if p.media_type == "video" {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 11))
                                         .foregroundColor(.white)
-                                        .cornerRadius(5)
                                         .padding(5)
+                                        .background(Color.black.opacity(0.6))
+                                        .clipShape(Circle())
+                                        .padding(4)
                                 }
                             }
                         }
@@ -542,6 +730,14 @@ struct ContentView: View {
                 profilePosts = res.posts ?? []
                 nextCursor = res.next_cursor ?? ""
                 directItems = []
+
+                if let u = res.user {
+                    addRecentSearch(account: SavedAccount(
+                        username: u.username,
+                        full_name: u.full_name,
+                        profile_pic: u.profile_pic_hd
+                    ))
+                }
             } else {
                 resolvedProfile = nil
                 directItems = res.items ?? []
@@ -583,18 +779,20 @@ struct ContentView: View {
 struct HighlightExplorerSheetView: View {
     let highlight: HighlightDetailResponse
     @ObservedObject var api: APIClient
-    let onPlayStories: ([StoryItem], String) -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedIndices: Set<Int> = []
     @State private var isDownloadingBatch = false
+    @State private var showingInnerViewer = false
+    @State private var innerViewerIndex = 0
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
                 HStack(spacing: 10) {
                     Button {
-                        onPlayStories(highlight.items, "✨ \(highlight.title) (@\(highlight.username))")
+                        innerViewerIndex = 0
+                        showingInnerViewer = true
                     } label: {
                         HStack {
                             Image(systemName: "play.circle.fill")
@@ -667,7 +865,8 @@ struct HighlightExplorerSheetView: View {
                                     .frame(height: 190)
                                     .clipped()
                                     .onTapGesture {
-                                        onPlayStories(Array(highlight.items[idx...]), "✨ \(highlight.title)")
+                                        innerViewerIndex = idx
+                                        showingInnerViewer = true
                                     }
 
                                     // Casilla de verificación
@@ -726,6 +925,15 @@ struct HighlightExplorerSheetView: View {
                     Button("Cerrar") { dismiss() }
                 }
             }
+            .fullScreenCover(isPresented: $showingInnerViewer) {
+                AnonymousStoryPlayerView(
+                    items: highlight.items,
+                    currentIndex: $innerViewerIndex,
+                    title: "✨ \(highlight.title)",
+                    api: api,
+                    onClose: { showingInnerViewer = false }
+                )
+            }
         }
     }
 
@@ -737,6 +945,70 @@ struct HighlightExplorerSheetView: View {
             await api.saveMediaToPhotos(item: item)
         }
         api.toastMessage = "✅ Se guardaron \(selectedIndices.count) historia(s) en Fotos."
+    }
+}
+
+// MARK: - Reproductor de Video Robusto sin Pantalla Negra
+struct StoryVideoPlayerView: View {
+    let videoURL: URL
+    @State private var player: AVPlayer?
+    @State private var isMuted = true
+    @State private var isBuffering = true
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            if let p = player {
+                VideoPlayer(player: p)
+                    .onAppear {
+                        p.play()
+                    }
+                    .onDisappear {
+                        p.pause()
+                    }
+            }
+
+            if isBuffering {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.2)
+            }
+
+            Button {
+                isMuted.toggle()
+                player?.isMuted = isMuted
+            } label: {
+                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Color.black.opacity(0.65))
+                    .clipShape(Circle())
+            }
+            .padding(16)
+        }
+        .onAppear {
+            let p = AVPlayer(url: videoURL)
+            p.isMuted = isMuted
+            p.actionAtItemEnd = .none
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: p.currentItem,
+                queue: .main
+            ) { _ in
+                p.seek(to: .zero)
+                p.play()
+            }
+            Task {
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                isBuffering = false
+            }
+            p.play()
+            self.player = p
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
+        }
     }
 }
 
@@ -789,13 +1061,30 @@ struct AnonymousStoryPlayerView: View {
                     // Contenido Multimedia sin pantalla negra
                     ZStack {
                         if current.media_type == "video", let vURL = api.proxyURL(for: current.url, filename: current.filename) {
-                            VideoPlayer(player: AVPlayer(url: vURL))
+                            StoryVideoPlayerView(videoURL: vURL)
+                                .id(current.id)
                         } else {
-                            AsyncImage(url: api.proxyURL(for: current.url, filename: current.filename)) { img in
-                                img.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView().tint(.white)
+                            AsyncImage(url: api.proxyURL(for: current.url, filename: current.filename)) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView().tint(.white)
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                case .failure:
+                                    AsyncImage(url: URL(string: current.url)) { directImg in
+                                        directImg.resizable().scaledToFit()
+                                    } placeholder: {
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(.gray)
+                                    }
+                                @unknown default:
+                                    EmptyView()
+                                }
                             }
+                            .id(current.id)
                         }
 
                         HStack(spacing: 0) {

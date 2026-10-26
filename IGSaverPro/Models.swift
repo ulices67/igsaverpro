@@ -114,3 +114,11 @@ struct MorePostsResponse: Codable {
     let posts: [PostItem]
     let next_cursor: String
 }
+
+struct SavedAccount: Codable, Identifiable, Equatable {
+    let username: String
+    let full_name: String
+    let profile_pic: String
+
+    var id: String { username.lowercased() }
+}
