@@ -1,84 +1,251 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B10000000000000000000001 = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
-		B10000000000000000000002 = {isa = PBXBuildFile; fileRef = B20000000000000000000002; };
-		B10000000000000000000003 = {isa = PBXBuildFile; fileRef = B20000000000000000000003; };
+		A10000012345678900000001 /* IGSaverProApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012345678900000001 /* IGSaverProApp.swift */; };
+		A10000022345678900000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022345678900000001 /* ContentView.swift */; };
+		A10000032345678900000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032345678900000001 /* APIClient.swift */; };
+		A10000042345678900000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042345678900000001 /* Models.swift */; };
+		A10000072345678900000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000072345678900000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		B20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IGSaverProApp.swift; sourceTree = "<group>"; };
-		B20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = folder; path = www; sourceTree = "<group>"; };
-		B2000000000000000000000A = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IGSaverPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000012345678900000001 /* IGSaverPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IGSaverPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000012345678900000001 /* IGSaverProApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IGSaverProApp.swift; sourceTree = "<group>"; };
+		A20000022345678900000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A20000032345678900000001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A20000042345678900000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A20000052345678900000001 /* IGSaverWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IGSaverWidget.swift; sourceTree = "<group>"; };
+		A20000062345678900000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000072345678900000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		B30000000000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A30000012345678900000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		B40000000000000000000001 = {isa = PBXGroup; children = (B40000000000000000000002, B40000000000000000000004, ); sourceTree = "<group>"; };
-		B40000000000000000000002 = {isa = PBXGroup; children = (B20000000000000000000001, B20000000000000000000002, B20000000000000000000003, ); path = IGSaverPro; sourceTree = "<group>"; };
-		B40000000000000000000004 = {isa = PBXGroup; children = (B2000000000000000000000A, ); name = Products; sourceTree = "<group>"; };
+		A40000012345678900000001 = {
+			isa = PBXGroup;
+			children = (
+				A40000022345678900000001 /* IGSaverPro */,
+				A40000032345678900000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A40000022345678900000001 /* IGSaverPro */ = {
+			isa = PBXGroup;
+			children = (
+				A20000012345678900000001 /* IGSaverProApp.swift */,
+				A20000022345678900000001 /* ContentView.swift */,
+				A20000032345678900000001 /* APIClient.swift */,
+				A20000042345678900000001 /* Models.swift */,
+				A20000052345678900000001 /* IGSaverWidget.swift */,
+				A20000062345678900000001 /* Info.plist */,
+				A20000072345678900000001 /* Assets.xcassets */,
+			);
+			path = IGSaverPro;
+			sourceTree = "<group>";
+		};
+		A40000032345678900000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00000012345678900000001 /* IGSaverPro.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B50000000000000000000001 = {
+		A50000012345678900000001 /* IGSaverPro */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B80000000000000000000002;
-			buildPhases = (B30000000000000000000002, B30000000000000000000001, B30000000000000000000003, );
-			buildRules = ();
-			dependencies = ();
+			buildConfigurationList = A60000022345678900000001 /* Build configuration list for PBXNativeTarget "IGSaverPro" */;
+			buildPhases = (
+				A70000012345678900000001 /* Sources */,
+				A30000012345678900000001 /* Frameworks */,
+				A80000012345678900000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = IGSaverPro;
 			productName = IGSaverPro;
-			productReference = B2000000000000000000000A;
+			productReference = A00000012345678900000001 /* IGSaverPro.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		B60000000000000000000001 = {
+		A90000012345678900000001 /* Project object */ = {
 			isa = PBXProject;
-			attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1600; TargetAttributes = { B50000000000000000000001 = { CreatedOnToolsVersion = 16.0; }; }; };
-			buildConfigurationList = B80000000000000000000001;
-			compatibilityVersion = "Xcode 15.0";
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = A60000012345678900000001 /* Build configuration list for PBXProject "IGSaverPro" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = es;
 			hasScannedForEncodings = 0;
-			knownRegions = (es, en, Base, );
-			mainGroup = B40000000000000000000001;
-			productRefGroup = B40000000000000000000004;
+			knownRegions = (
+				en,
+				es,
+				Base,
+			);
+			mainGroup = A40000012345678900000001;
+			productRefGroup = A40000032345678900000001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (B50000000000000000000001, );
+			targets = (
+				A50000012345678900000001 /* IGSaverPro */,
+			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		B30000000000000000000003 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000002, B10000000000000000000003, ); runOnlyForDeploymentPostprocessing = 0; };
+		A80000012345678900000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000072345678900000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		B30000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, ); runOnlyForDeploymentPostprocessing = 0; };
+		A70000012345678900000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012345678900000001 /* IGSaverProApp.swift in Sources */,
+				A10000022345678900000001 /* ContentView.swift in Sources */,
+				A10000032345678900000001 /* APIClient.swift in Sources */,
+				A10000042345678900000001 /* Models.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		B70000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; DEBUG_INFORMATION_FORMAT = dwarf; GCC_OPTIMIZATION_LEVEL = 0; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
-		B70000000000000000000002 = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
-		B70000000000000000000003 = {isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "IG Saver Pro"; INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Guardar historias, destacadas, publicaciones y fotos de perfil en tu carrete de Fotos."; INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Guardar fotos y videos descargados de Instagram directamente en Fotos."; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; MARKETING_VERSION = 2.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app; PRODUCT_NAME = IGSaverPro; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
-		B70000000000000000000004 = {isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "IG Saver Pro"; INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Guardar historias, destacadas, publicaciones y fotos de perfil en tu carrete de Fotos."; INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Guardar fotos y videos descargados de Instagram directamente en Fotos."; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; MARKETING_VERSION = 2.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app; PRODUCT_NAME = IGSaverPro; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		AA0000012345678900000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AA0000022345678900000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA0000032345678900000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IGSaverPro/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 3.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA0000042345678900000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IGSaverPro/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 3.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B80000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (B70000000000000000000001, B70000000000000000000002, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		B80000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (B70000000000000000000003, B70000000000000000000004, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000012345678900000001 /* Build configuration list for PBXProject "IGSaverPro" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000012345678900000001 /* Debug */,
+				AA0000022345678900000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A60000022345678900000001 /* Build configuration list for PBXNativeTarget "IGSaverPro" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000032345678900000001 /* Debug */,
+				AA0000042345678900000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
-
 	};
-	rootObject = B60000000000000000000001;
+	rootObject = A90000012345678900000001 /* Project object */;
 }

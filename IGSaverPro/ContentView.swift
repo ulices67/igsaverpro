@@ -1,0 +1,810 @@
+import SwiftUI
+import AVKit
+
+struct ContentView: View {
+    @StateObject private var api = APIClient()
+    @State private var searchText = ""
+    @State private var searchResults: [SearchUser] = []
+    @State private var isSearching = false
+
+    @State private var resolvedProfile: ResolveResponse?
+    @State private var profilePosts: [PostItem] = []
+    @State private var nextCursor: String = ""
+    @State private var directItems: [StoryItem] = []
+
+    // Visor Anónimo de Historias y Destacadas
+    @State private var showingStoryViewer = false
+    @State private var storyQueue: [StoryItem] = []
+    @State private var storyIndex = 0
+    @State private var storyHeaderTitle = ""
+
+    // Hoja de Login y Detalle de Post
+    @State private var showingLoginSheet = false
+    @State private var selectedPost: PostItem?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.04, green: 0.04, blue: 0.06).ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        headerBar
+                        searchAndInputCard
+                        if !searchResults.isEmpty {
+                            searchResultsList
+                        }
+                        if let prof = resolvedProfile, let user = prof.user {
+                            profileExplorerSection(user: user, prof: prof)
+                        }
+                        if !directItems.isEmpty {
+                            directMediaListSection
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 30)
+                }
+            }
+            .preferredColorScheme(.dark)
+            .task {
+                await api.checkStatus()
+            }
+            .sheet(isPresented: $showingLoginSheet) {
+                LoginSheetView(api: api)
+            }
+            .sheet(item: $selectedPost) { post in
+                PostDetailSheetView(post: post, username: resolvedProfile?.user?.username ?? "user", api: api)
+            }
+            .fullScreenCover(isPresented: $showingStoryViewer) {
+                AnonymousStoryPlayerView(
+                    items: storyQueue,
+                    currentIndex: $storyIndex,
+                    title: storyHeaderTitle,
+                    api: api,
+                    onClose: { showingStoryViewer = false }
+                )
+            }
+            .alert("Aviso", isPresented: Binding(
+                get: { api.errorMessage != nil || api.toastMessage != nil },
+                set: { if !$0 { api.errorMessage = nil; api.toastMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(api.toastMessage ?? api.errorMessage ?? "")
+            }
+        }
+    }
+
+    // MARK: - Header
+    private var headerBar: some View {
+        HStack {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(LinearGradient(
+                            colors: [.orange, .pink, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 42, height: 42)
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("IG Saver Pro")
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("Buscador · Destacadas · Historias Anónimas")
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                }
+            }
+            Spacer()
+            Button {
+                showingLoginSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(api.sessionStatus.logged_in ? Color.green : Color.orange)
+                        .frame(width: 8, height: 8)
+                    Text(api.sessionStatus.logged_in ? "@\(api.sessionStatus.username ?? "Conectado")" : "Iniciar Sesión")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Capsule())
+            }
+        }
+    }
+
+    // MARK: - Search & URL Card
+    private var searchAndInputCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("🕵️‍♂️ Modo 100% Anónimo — No apareces en vistos")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.green)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.green.opacity(0.14))
+                .clipShape(Capsule())
+
+            HStack {
+                TextField("Busca nombre, @usuario o pega link...", text: $searchText)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .foregroundColor(.white)
+                    .onSubmit {
+                        Task { await handleResolve() }
+                    }
+                Button("Pegar") {
+                    if let str = UIPasteboard.general.string {
+                        searchText = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Task { await handleResolve() }
+                    }
+                }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.pink)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.pink.opacity(0.18))
+                .cornerRadius(8)
+            }
+            .padding(13)
+            .background(Color.black.opacity(0.5))
+            .cornerRadius(14)
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await runAccountSearch() }
+                } label: {
+                    HStack {
+                        if isSearching { ProgressView().tint(.white) }
+                        Text("🔍 Buscar Cuentas")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color.white.opacity(0.1))
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                }
+
+                Button {
+                    Task { await handleResolve() }
+                } label: {
+                    HStack {
+                        if api.isLoading { ProgressView().tint(.white) }
+                        Text("Abrir / Descargar")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(LinearGradient(
+                        colors: [.orange, .pink, .purple],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ))
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+        .cornerRadius(20)
+    }
+
+    // MARK: - Search Results Dropdown
+    private var searchResultsList: some View {
+        VStack(spacing: 0) {
+            ForEach(searchResults) { u in
+                Button {
+                    searchText = "@\(u.username)"
+                    searchResults = []
+                    Task { await handleResolve() }
+                } label: {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: api.proxyURL(for: u.profile_pic_url, filename: "\(u.username).jpg")) { img in
+                            img.resizable().scaledToFill()
+                        } placeholder: {
+                            Color.gray.opacity(0.3)
+                        }
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().stroke(
+                                u.has_stories ? Color.pink : Color.clear,
+                                lineWidth: 2
+                            )
+                        )
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Text("@\(u.username)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                if u.is_verified {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.system(size: 12))
+                                }
+                                if u.is_private {
+                                    Image(systemName: "lock.fill")
+                                        .foregroundColor(.gray)
+                                        .font(.system(size: 11))
+                                }
+                            }
+                            Text(u.full_name)
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Text("Ver Perfil →")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.pink)
+                    }
+                    .padding(12)
+                }
+                Divider().background(Color.white.opacity(0.08))
+            }
+        }
+        .background(Color(red: 0.08, green: 0.08, blue: 0.12))
+        .cornerRadius(16)
+    }
+
+    // MARK: - Full Profile Explorer (HD Photo + Anonymous Stories + Highlights + Grid)
+    private func profileExplorerSection(user: ProfileUser, prof: ResolveResponse) -> some View {
+        let stories = prof.stories ?? []
+        let highlights = prof.highlights ?? []
+        let hasStories = !stories.isEmpty
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 16) {
+                AsyncImage(url: api.proxyURL(for: user.profile_pic_hd, filename: "\(user.username)_hd.jpg")) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    ProgressView()
+                }
+                .frame(width: 78, height: 78)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().stroke(
+                        hasStories
+                            ? LinearGradient(colors: [.orange, .pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : LinearGradient(colors: [.gray.opacity(0.4)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 3
+                    )
+                )
+                .onTapGesture {
+                    if hasStories {
+                        storyQueue = stories
+                        storyIndex = 0
+                        storyHeaderTitle = "@\(user.username) · Historias"
+                        showingStoryViewer = true
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 5) {
+                        Text("@\(user.username)")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                        if user.is_verified {
+                            Image(systemName: "checkmark.seal.fill").foregroundColor(.blue)
+                        }
+                        if user.is_private {
+                            Image(systemName: "lock.fill").foregroundColor(.orange)
+                        }
+                    }
+                    Text(user.full_name)
+                        .font(.system(size: 13))
+                        .foregroundColor(.gray)
+
+                    HStack(spacing: 14) {
+                        Text("**\(user.media_count)** posts").font(.system(size: 12))
+                        Text("**\(user.follower_count)** seg.").font(.system(size: 12))
+                        Text("**\(user.following_count)** sig.").font(.system(size: 12))
+                    }
+                    .foregroundColor(.white.opacity(0.85))
+                }
+            }
+
+            if !user.biography.isEmpty {
+                Text(user.biography)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+
+            // Botones Historias Anónimas y Foto de Perfil HD
+            HStack(spacing: 10) {
+                Button {
+                    if hasStories {
+                        storyQueue = stories
+                        storyIndex = 0
+                        storyHeaderTitle = "@\(user.username) · Historias"
+                        showingStoryViewer = true
+                    } else {
+                        api.toastMessage = "Este usuario no tiene historias activas hoy."
+                    }
+                } label: {
+                    Text(hasStories ? "🕵️‍♂️ Ver Historias (\(stories.count))" : "Sin Historias Hoy")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(hasStories ? Color.pink.opacity(0.22) : Color.white.opacity(0.08))
+                        .foregroundColor(hasStories ? .pink : .gray)
+                        .cornerRadius(12)
+                }
+
+                Button {
+                    let picItem = StoryItem(
+                        pk: user.pk,
+                        media_type: "photo",
+                        url: user.profile_pic_hd,
+                        thumbnail: user.profile_pic_hd,
+                        taken_at: nil,
+                        filename: "\(user.username)_profile_hd.jpg"
+                    )
+                    Task { await api.saveMediaToPhotos(item: picItem) }
+                } label: {
+                    Text("🖼️ Guardar Foto HD")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.white.opacity(0.1))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+            }
+
+            // Bandeja de Destacadas (Highlights)
+            if !highlights.isEmpty {
+                Text("✨ HISTORIAS DESTACADAS (\(highlights.count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(highlights) { hl in
+                            Button {
+                                Task { await openHighlight(hl) }
+                            } label: {
+                                VStack(spacing: 5) {
+                                    AsyncImage(url: api.proxyURL(for: hl.cover_url, filename: "hl_\(hl.pk).jpg")) { img in
+                                        img.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.gray.opacity(0.3)
+                                    }
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                                    .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 2))
+
+                                    Text(hl.title)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white)
+                                        .frame(width: 64)
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Cuadrícula de Publicaciones 3x3
+            if !profilePosts.isEmpty {
+                Text("📸 PUBLICACIONES (\(profilePosts.count) de \(user.media_count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 4),
+                    GridItem(.flexible(), spacing: 4),
+                    GridItem(.flexible(), spacing: 4)
+                ], spacing: 4) {
+                    ForEach(profilePosts) { post in
+                        Button {
+                            selectedPost = post
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                AsyncImage(url: api.proxyURL(for: post.thumbnail, filename: "thumb_\(post.pk).jpg")) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.gray.opacity(0.2)
+                                }
+                                .frame(height: 115)
+                                .clipped()
+
+                                if post.media_type == "carousel" {
+                                    Text("❐ \(post.items.count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .padding(4)
+                                        .background(Color.black.opacity(0.65))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(5)
+                                        .padding(5)
+                                } else if post.media_type == "video" {
+                                    Text("▶")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .padding(4)
+                                        .background(Color.black.opacity(0.65))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(5)
+                                        .padding(5)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !nextCursor.isEmpty {
+                    Button {
+                        Task { await loadMorePosts(user: user) }
+                    } label: {
+                        Text("➕ Cargar más publicaciones")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+        .cornerRadius(20)
+    }
+
+    // MARK: - Direct Media Section
+    private var directMediaListSection: some View {
+        VStack(spacing: 14) {
+            ForEach(directItems) { item in
+                VStack(spacing: 10) {
+                    AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
+                        img.resizable().scaledToFit()
+                    } placeholder: {
+                        ProgressView().frame(height: 200)
+                    }
+                    .frame(maxHeight: 360)
+                    .cornerRadius(12)
+
+                    Button {
+                        Task { await api.saveMediaToPhotos(item: item) }
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down.fill")
+                            Text("Guardar en Fotos")
+                        }
+                        .font(.system(size: 15, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                }
+                .padding(14)
+                .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+                .cornerRadius(18)
+            }
+        }
+    }
+
+    // MARK: - Actions
+    private func runAccountSearch() async {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        isSearching = true
+        defer { isSearching = false }
+        do {
+            searchResults = try await api.searchAccounts(query: q)
+        } catch {
+            api.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleResolve() async {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        searchResults = []
+        api.isLoading = true
+        defer { api.isLoading = false }
+
+        do {
+            let res = try await api.resolve(input: q)
+            if res.type == "profile" {
+                resolvedProfile = res
+                profilePosts = res.posts ?? []
+                nextCursor = res.next_cursor ?? ""
+                directItems = []
+            } else {
+                resolvedProfile = nil
+                directItems = res.items ?? []
+            }
+        } catch {
+            api.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func openHighlight(_ hl: HighlightTrayItem) async {
+        api.isLoading = true
+        defer { api.isLoading = false }
+        do {
+            let detail = try await api.fetchHighlight(pk: hl.pk)
+            if detail.items.isEmpty {
+                api.toastMessage = "Esta destacada no tiene elementos."
+                return
+            }
+            storyQueue = detail.items
+            storyIndex = 0
+            storyHeaderTitle = "✨ \(detail.title) (@\(detail.username))"
+            showingStoryViewer = true
+        } catch {
+            api.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadMorePosts(user: ProfileUser) async {
+        guard !nextCursor.isEmpty else { return }
+        do {
+            let more = try await api.fetchMorePosts(userId: user.pk, username: user.username, cursor: nextCursor)
+            profilePosts.append(contentsOf: more.posts)
+            nextCursor = more.next_cursor
+        } catch {
+            api.errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Visor Anónimo de Historias y Destacadas
+struct AnonymousStoryPlayerView: View {
+    let items: [StoryItem]
+    @Binding var currentIndex: Int
+    let title: String
+    @ObservedObject var api: APIClient
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if items.indices.contains(currentIndex) {
+                let current = items[currentIndex]
+                VStack(spacing: 12) {
+                    // Barras de progreso
+                    HStack(spacing: 4) {
+                        ForEach(items.indices, id: \.self) { idx in
+                            Rectangle()
+                                .fill(idx <= currentIndex ? Color.pink : Color.white.opacity(0.25))
+                                .frame(height: 3)
+                                .cornerRadius(2)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+
+                    // Cabecera
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(title) (\(currentIndex + 1)/\(items.count))")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("🕵️‍♂️ Viendo en Modo 100% Anónimo \(current.taken_at ?? "")")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.green)
+                        }
+                        Spacer()
+                        Button(action: onClose) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    Spacer()
+
+                    // Contenido Multimedia + Navegación Táctil
+                    ZStack {
+                        if current.media_type == "video", let vURL = api.proxyURL(for: current.url, filename: current.filename) {
+                            VideoPlayer(player: AVPlayer(url: vURL))
+                        } else {
+                            AsyncImage(url: api.proxyURL(for: current.url, filename: current.filename)) { img in
+                                img.resizable().scaledToFit()
+                            } placeholder: {
+                                ProgressView().tint(.white)
+                            }
+                        }
+
+                        HStack(spacing: 0) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if currentIndex > 0 { currentIndex -= 1 }
+                                }
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if currentIndex < items.count - 1 {
+                                        currentIndex += 1
+                                    } else {
+                                        onClose()
+                                    }
+                                }
+                        }
+                    }
+
+                    Spacer()
+
+                    // Botón Guardar en Fotos
+                    Button {
+                        Task { await api.saveMediaToPhotos(item: current) }
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down.fill")
+                            Text("Guardar en Fotos")
+                        }
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(LinearGradient(colors: [.orange, .pink, .purple], startPoint: .leading, endPoint: .trailing))
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Hoja de Inicio de Sesión
+struct LoginSheetView: View {
+    @ObservedObject var api: APIClient
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var useCookieTab = false
+    @State private var username = ""
+    @State private var password = ""
+    @State private var code2FA = ""
+    @State private var sessionid = ""
+    @State private var statusFeedback = ""
+    @State private var isSubmitting = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Servidor Cloudflare Conectado") {
+                    TextField("https://...", text: $api.serverURL)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                }
+
+                Section("Método de Inicio de Sesión") {
+                    Picker("Modo", selection: $useCookieTab) {
+                        Text("🔑 Usuario y Clave").tag(false)
+                        Text("🍪 Cookie sessionid").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if useCookieTab {
+                        TextField("Pega tu cookie sessionid...", text: $sessionid)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                    } else {
+                        TextField("Usuario de Instagram", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                        SecureField("Contraseña", text: $password)
+                        TextField("Código 2FA (Opcional)", text: $code2FA)
+                            .keyboardType(.numberPad)
+                    }
+
+                    Button {
+                        Task { await submitLogin() }
+                    } label: {
+                        HStack {
+                            if isSubmitting { ProgressView() }
+                            Text("Conectar Cuenta de Instagram")
+                                .fontWeight(.bold)
+                        }
+                    }
+
+                    if api.sessionStatus.logged_in {
+                        Button("Cerrar Sesión Actual", role: .destructive) {
+                            Task {
+                                await api.logout()
+                                statusFeedback = "Sesión cerrada."
+                            }
+                        }
+                    }
+
+                    if !statusFeedback.isEmpty {
+                        Text(statusFeedback)
+                            .font(.footnote)
+                            .foregroundColor(.pink)
+                    }
+                }
+            }
+            .navigationTitle("Sesión de Instagram")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func submitLogin() async {
+        isSubmitting = true
+        defer { isSubmitting = false }
+        let payload = useCookieTab
+            ? LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: sessionid)
+            : LoginPayload(username: username, password: password, verification_code: code2FA.isEmpty ? nil : code2FA, sessionid: nil)
+        do {
+            let msg = try await api.login(payload: payload)
+            statusFeedback = "✅ \(msg)"
+            dismiss()
+        } catch {
+            statusFeedback = "❌ \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - Hoja Detalle de Publicación del Grid
+struct PostDetailSheetView: View {
+    let post: PostItem
+    let username: String
+    @ObservedObject var api: APIClient
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    ForEach(post.items) { item in
+                        VStack(spacing: 10) {
+                            AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
+                                img.resizable().scaledToFit()
+                            } placeholder: {
+                                ProgressView().frame(height: 220)
+                            }
+                            .cornerRadius(12)
+
+                            Button {
+                                Task { await api.saveMediaToPhotos(item: item) }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "square.and.arrow.down.fill")
+                                    Text("Guardar en Fotos")
+                                }
+                                .font(.system(size: 15, weight: .bold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.pink)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(12)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(16)
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle("@\(username) · \(post.items.count) archivo(s)")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+        }
+    }
+}
