@@ -31,30 +31,28 @@ struct ContentView: View {
     @AppStorage("ig_recent_searches") private var recentSearchesJSON: String = "[]"
 
     private var favoriteAccounts: [SavedAccount] {
-        get {
-            guard let data = favAccountsJSON.data(using: .utf8),
-                  let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
-            return list
-        }
-        set {
-            if let data = try? JSONEncoder().encode(newValue),
-               let str = String(data: data, encoding: .utf8) {
-                favAccountsJSON = str
-            }
+        guard let data = favAccountsJSON.data(using: .utf8),
+              let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
+        return list
+    }
+
+    private func saveFavorites(_ list: [SavedAccount]) {
+        if let data = try? JSONEncoder().encode(list),
+           let str = String(data: data, encoding: .utf8) {
+            favAccountsJSON = str
         }
     }
 
     private var recentSearches: [SavedAccount] {
-        get {
-            guard let data = recentSearchesJSON.data(using: .utf8),
-                  let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
-            return list
-        }
-        set {
-            if let data = try? JSONEncoder().encode(newValue),
-               let str = String(data: data, encoding: .utf8) {
-                recentSearchesJSON = str
-            }
+        guard let data = recentSearchesJSON.data(using: .utf8),
+              let list = try? JSONDecoder().decode([SavedAccount].self, from: data) else { return [] }
+        return list
+    }
+
+    private func saveRecentSearches(_ list: [SavedAccount]) {
+        if let data = try? JSONEncoder().encode(list),
+           let str = String(data: data, encoding: .utf8) {
+            recentSearchesJSON = str
         }
     }
 
@@ -70,7 +68,7 @@ struct ContentView: View {
             list.insert(account, at: 0)
             if list.count > 25 { list.removeLast() }
         }
-        favoriteAccounts = list
+        saveFavorites(list)
     }
 
     private func addRecentSearch(account: SavedAccount) {
@@ -78,11 +76,11 @@ struct ContentView: View {
         list.removeAll(where: { $0.username.lowercased() == account.username.lowercased() })
         list.insert(account, at: 0)
         if list.count > 15 { list.removeLast() }
-        recentSearches = list
+        saveRecentSearches(list)
     }
 
     private func clearRecentSearches() {
-        recentSearches = []
+        saveRecentSearches([])
     }
 
     var body: some View {
