@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>IG Saver Pro</title>
+
+  <!-- PWA & iOS Native Meta Tags -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="IG Saver Pro" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0b0b10" />
+
+  <style>
+    :root {
+      --bg: #0b0b10;
+      --surface: #15151f;
+      --surface-glass: rgba(25, 25, 36, 0.82);
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #f5f5f7;
+      --muted: #8e8e9e;
+      --ig-gradient: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      --accent: #e1306c;
+      --success: #34c759;
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-top: calc(var(--safe-top) + 10px);
+      padding-bottom: calc(var(--safe-bottom) + 24px);
+      padding-left: 16px;
+      padding-right: 16px;
+      max-width: 640px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--ig-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(225, 48, 108, 0.35);
+    }
+
+    .brand-icon svg {
+      width: 23px;
+      height: 23px;
+      fill: white;
+    }
+
+    .brand-text h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-text p {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(12px);
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e67e22;
+    }
+    .status-dot.active {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Tarjeta de Búsqueda */
+    .card {
+      background: var(--surface-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .anon-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(52, 199, 89, 0.12);
+      color: #4cd964;
+      border: 1px solid rgba(52, 199, 89, 0.3);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .input-box {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .input-box input {
+      width: 100%;
+      background: #101017;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 15px 68px 15px 15px;
+      color: white;
+      font-size: 0.94rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-box input:focus {
+      border-color: #e1306c;
+    }
+
+    .btn-paste {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(225, 48, 108, 0.16);
+      border: 1px solid rgba(225, 48, 108, 0.35);
+      border-radius: 10px;
+      padding: 7px 11px;
+      color: #ff7597;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-main {
+      width: 100%;
+      background: var(--ig-gradient);
+      color: white;
+      border: none;
+      border-radius: 15px;
+      padding: 15px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(225, 48, 108, 0.35);
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn-main:active {
+      transform: scale(0.98);
+      opacity: 0.92;
+    }
+
+    /* ==================== VISTA DE PERFIL COMPLETO ==================== */
+    .profile-card {
+      background: var(--surface-glass);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .avatar-ring {
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      padding: 3px;
+      background: #333344;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+    }
+    .avatar-ring.has-stories {
+      background: var(--ig-gradient);
+      box-shadow: 0 0 16px rgba(225, 48, 108, 0.5);
+    }
+
+    .avatar-ring img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--bg);
+    }
+
+    .story-badge-ring {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      background: #e1306c;
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 2px solid var(--bg);
+    }
+
+    .profile-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .profile-username {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .profile-fullname {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .profile-stats {
+      display: flex;
+      gap: 14px;
+      font-size: 0.8rem;
+    }
+    .profile-stats div span {
+      font-weight: 700;
+      color: white;
+    }
+    .profile-stats div {
+      color: var(--muted);
+    }
+
+    .profile-bio {
+      font-size: 0.83rem;
+      color: #d0d0dc;
+      white-space: pre-line;
+      margin-bottom: 14px;
+      line-height: 1.35;
+    }
+
+    .profile-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .btn-secondary {
+      background: #222230;
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 12px;
+      padding: 11px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .btn-secondary.story-active {
+      background: rgba(225, 48, 108, 0.2);
+      border-color: rgba(225, 48, 108, 0.5);
+      color: #ff85ad;
+    }
+
+    /* Bandeja de Historias Destacadas (Highlights) */
+    .section-subtitle {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .highlights-tray {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+      scrollbar-width: none;
+    }
+    .highlights-tray::-webkit-scrollbar { display: none; }
+
+    .highlight-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 68px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .highlight-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      padding: 2.5px;
+      background: linear-gradient(135deg, #55556a, #2c2c3a);
+      margin-bottom: 5px;
+      transition: transform 0.15s;
+    }
+    .highlight-item:active .highlight-circle {
+      transform: scale(0.92);
+    }
+
+    .highlight-circle img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--bg);
+    }
+
+    .highlight-title {
+      font-size: 0.72rem;
+      color: #d8d8e4;
+      max-width: 66px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    /* Cuadrícula de Publicaciones (Grid 3x3) */
+    .posts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .grid-cell {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: #101018;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .grid-cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.2s;
+    }
+    .grid-cell:active img {
+      transform: scale(0.96);
+    }
+
+    .grid-type-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      color: white;
+      font-weight: 700;
+    }
+
+    /* Resultados Individuales */
+    .results-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .media-card {
+      background: #13131c;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      padding: 14px;
+    }
+
+    .media-preview {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      max-height: 440px;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .media-preview img, .media-preview video {
+      width: 100%;
+      height: auto;
+      max-height: 440px;
+      object-fit: contain;
+    }
+
+    .media-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .btn-save-photos {
+      width: 100%;
+      background: #242436;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: white;
+      border-radius: 13px;
+      padding: 13px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn-save-photos:active {
+      background: #303048;
+    }
+
+    /* ==================== VISOR ANÓNIMO DE HISTORIAS / DESTACADAS ==================== */
+    .story-viewer-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #050508;
+      z-index: 250;
+      flex-direction: column;
+      padding-top: calc(var(--safe-top) + 8px);
+      padding-bottom: calc(var(--safe-bottom) + 12px);
+    }
+    .story-viewer-modal.active {
+      display: flex;
+    }
+
+    .story-progress-bars {
+      display: flex;
+      gap: 4px;
+      padding: 0 12px;
+      margin-bottom: 10px;
+    }
+
+    .story-bar {
+      flex: 1;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .story-bar.seen { background: rgba(255, 255, 255, 0.85); }
+    .story-bar.current { background: #e1306c; }
+
+    .story-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px 10px 14px;
+    }
+
+    .story-user-meta {
+      display: flex;
+      flex-direction: column;
+    }
+    .story-user-meta strong {
+      font-size: 0.92rem;
+    }
+    .story-user-meta small {
+      font-size: 0.72rem;
+      color: #4cd964;
+    }
+
+    .btn-close-story {
+      background: rgba(255, 255, 255, 0.14);
+      border: none;
+      color: white;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .story-stage {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .story-stage img, .story-stage video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .story-nav-left, .story-nav-right {
+      position: absolute;
+      top: 0;
+      bottom: 70px;
+      width: 32%;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .story-nav-left { left: 0; }
+    .story-nav-right { right: 0; }
+
+    .story-bottom-bar {
+      padding: 12px 16px 0 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Tarjeta Descarga Formato IPA / App Nativa */
+    .ipa-box {
+      background: rgba(225, 48, 108, 0.08);
+      border: 1px solid rgba(225, 48, 108, 0.28);
+      border-radius: 18px;
+      padding: 15px;
+      margin-top: auto;
+    }
+    .ipa-box h4 {
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      color: #ff85ad;
+    }
+    .ipa-box p {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+      line-height: 1.35;
+    }
+    .ipa-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn-ipa {
+      background: #1f1f2e;
+      border: 1px solid var(--border);
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 11px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-ipa.primary {
+      background: var(--ig-gradient);
+      border: none;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modal Bottom Sheet (Login & Post Detail) */
+    .sheet {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      align-items: flex-end;
+    }
+    .sheet.active { display: flex; }
+    .sheet-content {
+      background: #181822;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 22px 18px calc(var(--safe-bottom) + 18px) 18px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+    .sheet-content h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .sheet-content p { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
+    .sheet-input {
+      width: 100%;
+      background: #101017;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      color: white;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>IG Saver Pro</h1>
+        <p>Perfiles · Destacadas · Historias Anónimas</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="status-pill" onclick="openLoginSheet()">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusLabel">Sesión</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Buscador Principal -->
+  <div class="card">
+    <div class="anon-badge">🕵️‍♂️ Modo Anónimo Activo — No apareces en vistos</div>
+    <div class="input-box">
+      <input type="text" id="urlInput" placeholder="Link de Perfil, @usuario, Historia o Post..." autocomplete="off" autocorrect="off" autocapitalize="off" />
+      <button class="btn-paste" onclick="pasteFromClipboard()">Pegar</button>
+    </div>
+
+    <button id="downloadBtn" class="btn-main" onclick="handleResolve()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span>Explorar Perfil o Descargar</span>
+    </button>
+  </div>
+
+  <!-- Contenedor Dinámico de Perfil o Medios -->
+  <div id="results" class="results-container"></div>
+
+  <!-- Sección Instalación IPA & Perfil Nativo iOS -->
+  <div class="ipa-box" id="ipaSection">
+    <h4>📲 Instalar App en tu iPhone (Formato IPA / Nativo)</h4>
+    <p>Descarga el archivo <strong>.ipa</strong> (para AltStore, Sideloadly, ESign o Scarlet) o instala directamente el <strong>Perfil de App Nativa iOS</strong> con un toque.</p>
+    <div class="ipa-buttons">
+      <a href="/download/IGSaverPro.ipa" class="btn-ipa primary" download="IGSaverPro.ipa">📦 Descargar .IPA</a>
+      <a href="/install.mobileconfig" class="btn-ipa">⚡ Instalar App Directa</a>
+    </div>
+  </div>
+
+  <!-- ==================== VISOR ANÓNIMO DE HISTORIAS Y DESTACADAS ==================== -->
+  <div class="story-viewer-modal" id="storyViewer">
+    <div class="story-progress-bars" id="storyProgressBars"></div>
+    <div class="story-top-bar">
+      <div class="story-user-meta">
+        <strong id="storyHeaderTitle">@usuario</strong>
+        <small id="storyHeaderSub">🕵️‍♂️ Viendo de forma 100% anónima</small>
+      </div>
+      <button class="btn-close-story" onclick="closeStoryViewer()">✕</button>
+    </div>
+
+    <div class="story-stage">
+      <div class="story-nav-left" onclick="prevStorySlide()"></div>
+      <div id="storyMediaHolder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+      <div class="story-nav-right" onclick="nextStorySlide()"></div>
+    </div>
+
+    <div class="story-bottom-bar">
+      <button class="btn-main" onclick="saveCurrentStoryToPhotos()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>Guardar en Fotos</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal para Ver una Publicación del Grid (Foto/Video/Carrusel) -->
+  <div class="sheet" id="postDetailSheet" onclick="closePostSheet()">
+    <div class="sheet-content" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 id="postSheetTitle">Publicación</h3>
+        <button class="btn-close-story" onclick="closePostSheet()">✕</button>
+      </div>
+      <div id="postSheetBody" class="results-container"></div>
+    </div>
+  </div>
+
+  <!-- Modal para Iniciar Sesión -->
+  <div class="sheet" id="loginSheet" onclick="closeLoginSheet()">
+    <div class="sheet-content" onclick="event.stopPropagation()">
+      <h3>Sesión Privada de Instagram</h3>
+      <p>Permite ver historias anónimas, destacadas y publicaciones de cuentas privadas que sigas.</p>
+
+      <label style="font-size:0.76rem; color:var(--muted)">Opción 1: Cookie sessionid (Recomendado)</label>
+      <input type="text" id="sessionidInput" class="sheet-input" placeholder="Pega tu sessionid..." />
+
+      <label style="font-size:0.76rem; color:var(--muted); margin-top:6px; display:block">Opción 2: Usuario y Contraseña</label>
+      <input type="text" id="userInput" class="sheet-input" placeholder="Usuario" />
+      <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña" />
+      <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA (Opcional)" />
+
+      <button class="btn-main" style="margin-top:8px" onclick="submitLogin()">Conectar Cuenta</button>
+      <div id="loginFeedback" style="font-size:0.84rem; margin-top:10px; text-align:center;"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentProfileData = null;
+    let activeStoryQueue = [];
+    let activeStoryIndex = 0;
+    let activeStoryLabel = "";
+
+    function proxyImg(rawUrl, filename = "media.jpg") {
+      return `/api/proxy-file?file_url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(filename)}`;
+    }
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const dot = document.getElementById('statusDot');
+        const label = document.getElementById('statusLabel');
+        if (data.logged_in) {
+          dot.classList.add('active');
+          label.textContent = data.username ? `@${data.username}` : 'Conectado';
+        } else {
+          dot.classList.remove('active');
+          label.textContent = 'Conectar';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function pasteFromClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          document.getElementById('urlInput').value = text.trim();
+          handleResolve();
+        }
+      } catch (e) {
+        document.getElementById('urlInput').focus();
+      }
+    }
+
+    async function handleResolve() {
+      const inputVal = document.getElementById('urlInput').value.trim();
+      const btn = document.getElementById('downloadBtn');
+      const resultsDiv = document.getElementById('results');
+
+      if (!inputVal) {
+        alert('Escribe un @usuario o pega un enlace de Instagram.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div><span>Cargando en modo anónimo...</span>';
+      resultsDiv.innerHTML = '';
+
+      try {
+        const res = await fetch(`/api/resolve?url=${encodeURIComponent(inputVal)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.detail || 'Error al obtener la información.');
+        }
+
+        if (data.type === 'profile') {
+          currentProfileData = data;
+          renderFullProfile(data);
+        } else if (data.type === 'story' || data.type === 'user_stories' || data.type === 'highlight') {
+          renderMediaCards(data.items, data.username || 'usuario');
+          // También ofrecer abrir en el visor de historias
+          openStoryViewer(data.items, `@${data.username || 'usuario'}`);
+        } else {
+          renderMediaCards(data.items, data.username || 'usuario');
+        }
+      } catch (err) {
+        resultsDiv.innerHTML = `
+          <div class="card" style="border-color:#e74c3c; background:rgba(231,76,60,0.12)">
+            <p style="color:#ff6b6b; font-size:0.88rem">❌ ${err.message}</p>
+          </div>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <span>Explorar Perfil o Descargar</span>
+        `;
+      }
+    }
+
+    /* Renderizar Perfil Completo (Foto HD + Historias Anónimas + Destacadas + Publicaciones) */
+    function renderFullProfile(data) {
+      const resultsDiv = document.getElementById('results');
+      const u = data.user;
+      const hasStories = data.stories && data.stories.length > 0;
+      const avatarProxy = proxyImg(u.profile_pic_hd, `${u.username}_profile_hd.jpg`);
+
+      const highlightsHtml = (data.highlights && data.highlights.length > 0)
+        ? `
+          <div class="section-subtitle">
+            <span>✨ Historias Destacadas (${data.highlights.length})</span>
+            <small style="color:#4cd964; font-weight:600">Toque para ver anónimo</small>
+          </div>
+          <div class="highlights-tray">
+            ${data.highlights.map(h => `
+              <div class="highlight-item" onclick="loadAndOpenHighlight('${h.pk}', '${h.title.replace(/'/g, "")}')">
+                <div class="highlight-circle">
+                  <img src="${proxyImg(h.cover_url)}" loading="lazy" alt="${h.title}" />
+                </div>
+                <span class="highlight-title">${h.title}</span>
+              </div>
+            `).join('')}
+          </div>
+        `
+        : '';
+
+      const postsHtml = (data.posts && data.posts.length > 0)
+        ? `
+          <div class="section-subtitle">
+            <span>📸 Publicaciones Recientes (${data.posts.length})</span>
+            <small>Toca cualquiera para guardar</small>
+          </div>
+          <div class="posts-grid">
+            ${data.posts.map((post, idx) => {
+              let badge = '';
+              if (post.media_type === 'carousel') badge = `❐ ${post.items.length}`;
+              else if (post.media_type === 'video') badge = '▶ Video';
+              return `
+                <div class="grid-cell" onclick="openProfilePost(${idx})">
+                  <img src="${proxyImg(post.thumbnail)}" loading="lazy" alt="Post" />
+                  ${badge ? `<span class="grid-type-badge">${badge}</span>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `
+        : `<p style="color:var(--muted); font-size:0.84rem; text-align:center; padding:14px 0;">No hay publicaciones visibles o la cuenta es privada.</p>`;
+
+      resultsDiv.innerHTML = `
+        <div class="profile-card">
+          <div class="profile-header">
+            <div class="avatar-ring ${hasStories ? 'has-stories' : ''}" onclick="${hasStories ? 'openProfileActiveStories()' : `saveToPhotos('${avatarProxy}', '${u.username}_profile_hd.jpg', 'photo')`}">
+              <img src="${avatarProxy}" alt="@${u.username}" />
+              ${hasStories ? `<span class="story-badge-ring">${data.stories.length}</span>` : ''}
+            </div>
+
+            <div class="profile-info">
+              <div class="profile-username">
+                <span>@${u.username}</span>
+                ${u.is_private ? '<span title="Cuenta Privada">🔒</span>' : ''}
+              </div>
+              <div class="profile-fullname">${u.full_name}</div>
+              <div class="profile-stats">
+                <div><span>${u.media_count}</span> posts</div>
+                <div><span>${formatNum(u.follower_count)}</span> seg.</div>
+                <div><span>${formatNum(u.following_count)}</span> sig.</div>
+              </div>
+            </div>
+          </div>
+
+          ${u.biography ? `<div class="profile-bio">${escapeHtml(u.biography)}</div>` : ''}
+
+          <div class="profile-actions">
+            <button class="btn-secondary ${hasStories ? 'story-active' : ''}" onclick="openProfileActiveStories()">
+              🕵️‍♂️ ${hasStories ? `Ver Historias (${data.stories.length})` : 'Sin Historias Hoy'}
+            </button>
+            <button class="btn-secondary" onclick="saveToPhotos('${avatarProxy}', '${u.username}_profile_hd.jpg', 'photo')">
+              🖼️ Guardar Foto HD
+            </button>
+          </div>
+
+          ${highlightsHtml}
+          ${postsHtml}
+        </div>
+      `;
+    }
+
+    function openProfileActiveStories() {
+      if (!currentProfileData || !currentProfileData.stories || currentProfileData.stories.length === 0) {
+        alert('Este usuario no tiene historias activas en las últimas 24 horas.');
+        return;
+      }
+      openStoryViewer(currentProfileData.stories, `@${currentProfileData.user.username} · Historias`);
+    }
+
+    async function loadAndOpenHighlight(highlightPk, title) {
+      try {
+        const res = await fetch(`/api/highlight/${encodeURIComponent(highlightPk)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'No se pudo cargar la destacada');
+        if (!data.items || data.items.length === 0) {
+          alert('Esta destacada no contiene elementos.');
+          return;
+        }
+        openStoryViewer(data.items, `✨ ${title} (@${data.username})`);
+      } catch (err) {
+        alert('Error al abrir destacada: ' + err.message);
+      }
+    }
+
+    /* Visor Anónimo de Historias / Destacadas */
+    function openStoryViewer(items, titleLabel) {
+      activeStoryQueue = items;
+      activeStoryIndex = 0;
+      activeStoryLabel = titleLabel;
+      document.getElementById('storyViewer').classList.add('active');
+      renderCurrentStorySlide();
+    }
+
+    function closeStoryViewer() {
+      const holder = document.getElementById('storyMediaHolder');
+      holder.innerHTML = '';
+      document.getElementById('storyViewer').classList.remove('active');
+    }
+
+    function renderCurrentStorySlide() {
+      const item = activeStoryQueue[activeStoryIndex];
+      if (!item) return;
+
+      const barsContainer = document.getElementById('storyProgressBars');
+      barsContainer.innerHTML = activeStoryQueue.map((_, i) => {
+        let cls = 'story-bar';
+        if (i < activeStoryIndex) cls += ' seen';
+        else if (i === activeStoryIndex) cls += ' current';
+        return `<div class="${cls}"></div>`;
+      }).join('');
+
+      document.getElementById('storyHeaderTitle').textContent = `${activeStoryLabel} (${activeStoryIndex + 1}/${activeStoryQueue.length})`;
+      document.getElementById('storyHeaderSub').textContent = `🕵️‍♂️ Anónimo ${item.taken_at ? '· ' + item.taken_at : ''}`;
+
+      const fileProxy = proxyImg(item.url, item.filename);
+      const holder = document.getElementById('storyMediaHolder');
+      if (item.media_type === 'video') {
+        holder.innerHTML = `<video src="${fileProxy}" autoplay controls playsinline style="max-height:100%; max-width:100%"></video>`;
+      } else {
+        holder.innerHTML = `<img src="${fileProxy}" alt="Story" />`;
+      }
+    }
+
+    function prevStorySlide() {
+      if (activeStoryIndex > 0) {
+        activeStoryIndex--;
+        renderCurrentStorySlide();
+      }
+    }
+
+    function nextStorySlide() {
+      if (activeStoryIndex < activeStoryQueue.length - 1) {
+        activeStoryIndex++;
+        renderCurrentStorySlide();
+      } else {
+        closeStoryViewer();
+      }
+    }
+
+    function saveCurrentStoryToPhotos() {
+      const item = activeStoryQueue[activeStoryIndex];
+      if (!item) return;
+      const fileProxy = proxyImg(item.url, item.filename);
+      saveToPhotos(fileProxy, item.filename, item.media_type);
+    }
+
+    /* Abrir Publicación del Grid */
+    function openProfilePost(postIndex) {
+      if (!currentProfileData || !currentProfileData.posts[postIndex]) return;
+      const post = currentProfileData.posts[postIndex];
+      const uname = currentProfileData.user.username;
+
+      document.getElementById('postSheetTitle').textContent = `@${uname} · ${post.items.length} archivo(s)`;
+      const body = document.getElementById('postSheetBody');
+      body.innerHTML = buildMediaCardsHtml(post.items, uname);
+      document.getElementById('postDetailSheet').classList.add('active');
+    }
+
+    function closePostSheet() {
+      document.getElementById('postSheetBody').innerHTML = '';
+      document.getElementById('postDetailSheet').classList.remove('active');
+    }
+
+    function renderMediaCards(items, username) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = buildMediaCardsHtml(items, username);
+    }
+
+    function buildMediaCardsHtml(items, username) {
+      if (!items || items.length === 0) {
+        return '<p style="color:var(--muted)">No se encontraron archivos.</p>';
+      }
+      return items.map((item, idx) => {
+        const isVideo = item.media_type === 'video';
+        const fileProxy = proxyImg(item.url, item.filename);
+        return `
+          <div class="media-card">
+            <div class="media-preview">
+              ${isVideo
+                ? `<video src="${fileProxy}" controls playsinline preload="metadata"></video>`
+                : `<img src="${fileProxy}" loading="lazy" alt="Instagram Media" />`
+              }
+            </div>
+            <div class="media-meta">
+              <span><strong>@${username}</strong> · ${item.media_type.toUpperCase()} #${idx + 1}</span>
+            </div>
+            <button class="btn-save-photos" onclick="saveToPhotos('${fileProxy}', '${item.filename}', '${item.media_type}')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Guardar en Fotos</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* Guardar directamente en la app Fotos de iOS */
+    async function saveToPhotos(fileUrl, filename, mediaType) {
+      try {
+        const res = await fetch(fileUrl);
+        const blob = await res.blob();
+        const mime = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
+        const file = new File([blob], filename, { type: mime });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: filename,
+          });
+        } else {
+          const a = document.createElement('a');
+          a.href = fileUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          window.location.href = fileUrl;
+        }
+      }
+    }
+
+    function formatNum(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function openLoginSheet() { document.getElementById('loginSheet').classList.add('active'); }
+    function closeLoginSheet() { document.getElementById('loginSheet').classList.remove('active'); }
+
+    async function submitLogin() {
+      const fb = document.getElementById('loginFeedback');
+      fb.textContent = 'Conectando con Instagram...';
+      fb.style.color = 'var(--muted)';
+
+      const payload = {
+        sessionid: document.getElementById('sessionidInput').value || null,
+        username: document.getElementById('userInput').value || null,
+        password: document.getElementById('passInput').value || null,
+        verification_code: document.getElementById('code2faInput').value || null,
+      };
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          fb.textContent = '✅ Sesión privada conectada';
+          fb.style.color = 'var(--success)';
+          setTimeout(closeLoginSheet, 1000);
+          checkStatus();
+        } else {
+          fb.textContent = '❌ ' + (data.detail || 'Error de autenticación');
+          fb.style.color = '#e74c3c';
+        }
+      } catch (e) {
+        fb.textContent = '❌ Error de red';
+        fb.style.color = '#e74c3c';
+      }
+    }
+
+    checkStatus();
+  </script>
+</body>
+</html>

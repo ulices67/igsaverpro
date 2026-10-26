@@ -1,0 +1,65 @@
+name: Build IGSaverPro iOS (.ipa)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile with Xcode 16 on macOS
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          echo "=== Versiones de Xcode disponibles ==="
+          ls -d /Applications/Xcode* || true
+          if [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          elif [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app
+          elif [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app
+          elif [ -d "/Applications/Xcode_16.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app
+          fi
+          xcodebuild -version
+
+      - name: Build for Physical iOS Device
+        run: |
+          echo "Compilando IGSaverPro para iPhone físico (arm64)..."
+          xcodebuild clean build \
+            -project IGSaverPro.xcodeproj \
+            -scheme IGSaverPro \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath derived_data_device \
+            CODE_SIGN_STYLE="Manual" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package .ipa for Physical iPhone
+        run: |
+          echo "Creando estructura Payload para .ipa..."
+          rm -rf Payload IGSaverPro.ipa
+          mkdir -p Payload
+          cp -R derived_data_device/Build/Products/Release-iphoneos/IGSaverPro.app Payload/
+          zip -r IGSaverPro.ipa Payload
+          ls -lh IGSaverPro.ipa
+
+      - name: Upload .ipa (Physical iPhone)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IGSaverPro-Device-ipa
+          path: IGSaverPro.ipa
+          if-no-files-found: error
