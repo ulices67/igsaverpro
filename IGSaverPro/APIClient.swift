@@ -17,11 +17,15 @@ class APIClient: ObservableObject {
 
     // Registro 24/7 en la nube de GitHub que NUNCA cae
     static let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
-    static let defaultURL = "https://sector-laboratories-previews-graduated.trycloudflare.com"
+    static let defaultURL = "https://alone-updated-techrepublic-quad.trycloudflare.com"
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "ig_server_url")
-        if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        // Si el valor guardado es un túnel trycloudflare antiguo que no coincide con el actual, forzar el activo
+        if let saved = saved, saved.contains(".trycloudflare.com") && saved != APIClient.defaultURL {
+            self.serverURL = APIClient.defaultURL
+            UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
+        } else if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.serverURL = saved
         } else {
             self.serverURL = APIClient.defaultURL

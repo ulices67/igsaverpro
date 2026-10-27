@@ -9,7 +9,7 @@ struct IGSaverEntry: TimelineEntry {
 
 struct IGSaverWidgetProvider: TimelineProvider {
     let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
-    let defaultURL = "https://sector-laboratories-previews-graduated.trycloudflare.com"
+    let defaultURL = "https://alone-updated-techrepublic-quad.trycloudflare.com"
 
     func placeholder(in context: Context) -> IGSaverEntry {
         IGSaverEntry(date: Date(), loggedIn: true, username: "Conectado")
