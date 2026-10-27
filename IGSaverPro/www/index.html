@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="referrer" content="no-referrer" />
   <title>IG Saver Pro</title>
 
   <!-- PWA & iOS Native Meta Tags -->
@@ -18,15 +19,16 @@
     :root {
       --bg: #0b0b10;
       --surface: #15151f;
-      --surface-glass: rgba(25, 25, 36, 0.82);
+      --surface-glass: rgba(25, 25, 36, 0.88);
       --border: rgba(255, 255, 255, 0.09);
       --text: #f5f5f7;
       --muted: #8e8e9e;
       --ig-gradient: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
       --accent: #e1306c;
       --success: #34c759;
-      --safe-top: env(safe-area-inset-top, 20px);
-      --safe-bottom: env(safe-area-inset-bottom, 20px);
+      --gold: #f1c40f;
+      --safe-top: env(safe-area-inset-top, 24px);
+      --safe-bottom: env(safe-area-inset-bottom, 24px);
     }
 
     * {
@@ -41,9 +43,10 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
-      padding-top: calc(var(--safe-top) + 10px);
+      padding-top: calc(var(--safe-top) + 8px);
       padding-bottom: calc(var(--safe-bottom) + 24px);
       padding-left: 16px;
       padding-right: 16px;
@@ -58,7 +61,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
 
     .brand {
@@ -68,8 +71,8 @@
     }
 
     .brand-icon {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       border-radius: 12px;
       background: var(--ig-gradient);
       display: flex;
@@ -79,26 +82,20 @@
     }
 
     .brand-icon svg {
-      width: 23px;
-      height: 23px;
+      width: 22px;
+      height: 22px;
       fill: white;
     }
 
     .brand-text h1 {
-      font-size: 1.2rem;
+      font-size: 1.15rem;
       font-weight: 700;
       letter-spacing: -0.3px;
     }
 
     .brand-text p {
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       color: var(--muted);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
 
     .status-pill {
@@ -107,7 +104,7 @@
       gap: 6px;
       background: var(--surface-glass);
       backdrop-filter: blur(12px);
-      padding: 7px 12px;
+      padding: 7px 13px;
       border-radius: 999px;
       border: 1px solid var(--border);
       font-size: 0.76rem;
@@ -126,7 +123,7 @@
       box-shadow: 0 0 8px var(--success);
     }
 
-    /* Tarjeta de Búsqueda */
+    /* Tarjeta Principal */
     .card {
       background: var(--surface-glass);
       backdrop-filter: blur(20px);
@@ -134,8 +131,9 @@
       border: 1px solid var(--border);
       border-radius: 22px;
       padding: 18px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      position: relative;
     }
 
     .anon-badge {
@@ -147,7 +145,7 @@
       border: 1px solid rgba(52, 199, 89, 0.3);
       padding: 4px 10px;
       border-radius: 999px;
-      font-size: 0.73rem;
+      font-size: 0.72rem;
       font-weight: 600;
       margin-bottom: 10px;
     }
@@ -162,7 +160,7 @@
       background: #101017;
       border: 1px solid var(--border);
       border-radius: 15px;
-      padding: 15px 68px 15px 15px;
+      padding: 15px 72px 15px 15px;
       color: white;
       font-size: 0.94rem;
       outline: none;
@@ -187,36 +185,187 @@
       cursor: pointer;
     }
 
+    .action-buttons-row {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 10px;
+    }
+
+    .btn-search-accounts {
+      background: #232334;
+      color: white;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 13px 12px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .btn-search-accounts:active { background: #2c2c40; }
+
     .btn-main {
       width: 100%;
       background: var(--ig-gradient);
       color: white;
       border: none;
       border-radius: 15px;
-      padding: 15px;
-      font-size: 0.96rem;
+      padding: 13px 12px;
+      font-size: 0.88rem;
       font-weight: 700;
       letter-spacing: -0.2px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 9px;
+      gap: 8px;
       cursor: pointer;
       box-shadow: 0 8px 24px rgba(225, 48, 108, 0.35);
       transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-main:active {
-      transform: scale(0.98);
-      opacity: 0.92;
+    .btn-main:active { transform: scale(0.98); opacity: 0.92; }
+
+    /* Resultados del Buscador */
+    .search-dropdown {
+      display: none;
+      margin-top: 12px;
+      background: #111119;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-height: 330px;
+      overflow-y: auto;
+    }
+    .search-dropdown.active { display: block; }
+
+    .search-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+    }
+    .search-item:last-child { border-bottom: none; }
+    .search-item:active { background: rgba(225, 48, 108, 0.15); }
+
+    .search-avatar-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      padding: 2px;
+      background: #2c2c3c;
+      flex-shrink: 0;
+    }
+    .search-avatar-wrap.has-stories { background: var(--ig-gradient); }
+    .search-avatar-wrap img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #111119;
+    }
+    .search-user-info { flex: 1; min-width: 0; }
+    .search-username {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .search-fullname {
+      font-size: 0.76rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .verified-badge { color: #3897f0; font-size: 0.8rem; }
+    .following-tag {
+      font-size: 0.66rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: #b5b5c5;
+      padding: 2px 6px;
+      border-radius: 6px;
     }
 
-    /* ==================== VISTA DE PERFIL COMPLETO ==================== */
+    /* ==================== SECCIÓN DE FAVORITOS Y RECIENTES ==================== */
+    .quick-section {
+      margin-bottom: 14px;
+    }
+    .quick-section-title {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .quick-section-title button {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .quick-tray {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .quick-tray::-webkit-scrollbar { display: none; }
+
+    .quick-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 58px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .quick-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      padding: 2px;
+      background: linear-gradient(135deg, #f1c40f, #e67e22);
+      margin-bottom: 4px;
+      position: relative;
+    }
+    .quick-avatar.recent {
+      background: #333346;
+    }
+    .quick-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--bg);
+    }
+    .quick-name {
+      font-size: 0.7rem;
+      color: #d8d8e4;
+      max-width: 58px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    /* Vista de Perfil */
     .profile-card {
       background: var(--surface-glass);
       border: 1px solid var(--border);
       border-radius: 22px;
       padding: 18px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .profile-header {
@@ -227,8 +376,8 @@
     }
 
     .avatar-ring {
-      width: 82px;
-      height: 82px;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       padding: 3px;
       background: #333344;
@@ -240,7 +389,6 @@
       background: var(--ig-gradient);
       box-shadow: 0 0 16px rgba(225, 48, 108, 0.5);
     }
-
     .avatar-ring img {
       width: 100%;
       height: 100%;
@@ -248,7 +396,6 @@
       object-fit: cover;
       border: 3px solid var(--bg);
     }
-
     .story-badge-ring {
       position: absolute;
       bottom: -2px;
@@ -262,11 +409,7 @@
       border: 2px solid var(--bg);
     }
 
-    .profile-info {
-      flex: 1;
-      min-width: 0;
-    }
-
+    .profile-info { flex: 1; min-width: 0; }
     .profile-username {
       font-size: 1.1rem;
       font-weight: 700;
@@ -275,26 +418,10 @@
       gap: 6px;
       margin-bottom: 2px;
     }
-
-    .profile-fullname {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .profile-stats {
-      display: flex;
-      gap: 14px;
-      font-size: 0.8rem;
-    }
-    .profile-stats div span {
-      font-weight: 700;
-      color: white;
-    }
-    .profile-stats div {
-      color: var(--muted);
-    }
-
+    .profile-fullname { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+    .profile-stats { display: flex; gap: 14px; font-size: 0.8rem; }
+    .profile-stats div span { font-weight: 700; color: white; }
+    .profile-stats div { color: var(--muted); }
     .profile-bio {
       font-size: 0.83rem;
       color: #d0d0dc;
@@ -306,12 +433,12 @@
     .profile-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 14px;
     }
 
     .btn-secondary {
-      background: #222230;
+      background: #20202e;
       border: 1px solid var(--border);
       color: white;
       border-radius: 12px;
@@ -329,8 +456,13 @@
       border-color: rgba(225, 48, 108, 0.5);
       color: #ff85ad;
     }
+    .btn-fav {
+      background: rgba(241, 196, 15, 0.15);
+      border-color: rgba(241, 196, 15, 0.35);
+      color: #f1c40f;
+    }
 
-    /* Bandeja de Historias Destacadas (Highlights) */
+    /* Bandeja de Destacadas */
     .section-subtitle {
       font-size: 0.78rem;
       font-weight: 700;
@@ -348,7 +480,7 @@
       gap: 14px;
       overflow-x: auto;
       padding-bottom: 10px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       scrollbar-width: none;
     }
     .highlights-tray::-webkit-scrollbar { display: none; }
@@ -361,7 +493,6 @@
       flex-shrink: 0;
       cursor: pointer;
     }
-
     .highlight-circle {
       width: 64px;
       height: 64px;
@@ -371,10 +502,7 @@
       margin-bottom: 5px;
       transition: transform 0.15s;
     }
-    .highlight-item:active .highlight-circle {
-      transform: scale(0.92);
-    }
-
+    .highlight-item:active .highlight-circle { transform: scale(0.92); }
     .highlight-circle img {
       width: 100%;
       height: 100%;
@@ -382,7 +510,6 @@
       object-fit: cover;
       border: 2px solid var(--bg);
     }
-
     .highlight-title {
       font-size: 0.72rem;
       color: #d8d8e4;
@@ -393,7 +520,7 @@
       text-align: center;
     }
 
-    /* Cuadrícula de Publicaciones (Grid 3x3) */
+    /* Cuadrícula de Publicaciones */
     .posts-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -401,7 +528,6 @@
       border-radius: 12px;
       overflow: hidden;
     }
-
     .grid-cell {
       position: relative;
       aspect-ratio: 1 / 1;
@@ -409,17 +535,11 @@
       cursor: pointer;
       overflow: hidden;
     }
-
     .grid-cell img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.2s;
     }
-    .grid-cell:active img {
-      transform: scale(0.96);
-    }
-
     .grid-type-badge {
       position: absolute;
       top: 6px;
@@ -433,128 +553,146 @@
       font-weight: 700;
     }
 
-    /* Resultados Individuales */
-    .results-container {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .media-card {
-      background: #13131c;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      overflow: hidden;
-      padding: 14px;
-    }
-
-    .media-preview {
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      max-height: 440px;
-      background: black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .media-preview img, .media-preview video {
-      width: 100%;
-      height: auto;
-      max-height: 440px;
-      object-fit: contain;
-    }
-
-    .media-meta {
+    /* Barra de Selección Múltiple */
+    .selection-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-top: 10px;
-      margin-bottom: 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
+      background: rgba(255, 255, 255, 0.06);
+      padding: 10px 14px;
+      border-radius: 14px;
+      margin-bottom: 12px;
     }
-
-    .btn-save-photos {
-      width: 100%;
-      background: #242436;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      color: white;
-      border-radius: 13px;
-      padding: 13px;
-      font-size: 0.92rem;
-      font-weight: 600;
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .custom-checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      background: rgba(225, 48, 108, 0.1);
       cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-save-photos:active {
-      background: #303048;
+    .custom-checkbox.checked {
+      background: var(--accent);
+      color: white;
     }
 
-    /* ==================== VISOR ANÓNIMO DE HISTORIAS / DESTACADAS ==================== */
+    /* Cuadrícula de Destacadas en Fila */
+    .stories-row-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .story-card-item {
+      position: relative;
+      background: #111119;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .story-card-item.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(225, 48, 108, 0.4);
+    }
+    .story-card-thumb {
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      background: #000;
+      position: relative;
+      cursor: pointer;
+    }
+    .story-card-thumb img, .story-card-thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ROBUSTO ==================== */
     .story-viewer-modal {
       display: none;
       position: fixed;
-      inset: 0;
-      background: #050508;
-      z-index: 250;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      width: 100dvw;
+      height: 100vh;
+      height: 100dvh;
+      background: #000000 !important;
+      z-index: 9999;
       flex-direction: column;
-      padding-top: calc(var(--safe-top) + 8px);
-      padding-bottom: calc(var(--safe-bottom) + 12px);
+      justify-content: space-between;
+      padding-top: calc(var(--safe-top) + 6px);
+      padding-bottom: calc(var(--safe-bottom) + 10px);
+      box-sizing: border-box;
     }
-    .story-viewer-modal.active {
-      display: flex;
-    }
+    .story-viewer-modal.active { display: flex !important; }
 
     .story-progress-bars {
       display: flex;
       gap: 4px;
-      padding: 0 12px;
-      margin-bottom: 10px;
+      padding: 0 14px;
+      margin-bottom: 8px;
+      z-index: 10001;
+      position: relative;
     }
-
     .story-bar {
       flex: 1;
       height: 3px;
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.3);
       border-radius: 2px;
       overflow: hidden;
     }
-    .story-bar.seen { background: rgba(255, 255, 255, 0.85); }
+    .story-bar.seen { background: rgba(255, 255, 255, 0.9); }
     .story-bar.current { background: #e1306c; }
 
     .story-top-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 14px 10px 14px;
-    }
-
-    .story-user-meta {
-      display: flex;
-      flex-direction: column;
+      padding: 0 16px 8px 16px;
+      z-index: 10001;
+      position: relative;
     }
     .story-user-meta strong {
-      font-size: 0.92rem;
+      font-size: 0.95rem;
+      color: #ffffff !important;
+      display: block;
     }
     .story-user-meta small {
       font-size: 0.72rem;
-      color: #4cd964;
+      color: #4cd964 !important;
+      display: block;
     }
 
-    .btn-close-story {
-      background: rgba(255, 255, 255, 0.14);
-      border: none;
-      color: white;
-      width: 34px;
-      height: 34px;
+    .top-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-sound-toggle, .btn-close-story {
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white !important;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      font-size: 1.1rem;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
 
     .story-stage {
@@ -565,32 +703,94 @@
       justify-content: center;
       overflow: hidden;
       background: #000;
+      min-height: 200px;
     }
-
     .story-stage img, .story-stage video {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+      pointer-events: none;
     }
 
     .story-nav-left, .story-nav-right {
       position: absolute;
       top: 0;
-      bottom: 70px;
-      width: 32%;
-      z-index: 10;
+      bottom: 0;
+      width: 35%;
+      z-index: 10000;
       cursor: pointer;
     }
     .story-nav-left { left: 0; }
     .story-nav-right { right: 0; }
 
     .story-bottom-bar {
-      padding: 12px 16px 0 16px;
+      padding: 10px 16px 0 16px;
       display: flex;
       gap: 10px;
+      z-index: 10001;
+      position: relative;
     }
 
-    /* Tarjeta Descarga Formato IPA / App Nativa */
+    /* Modal Bottom Sheet */
+    .sheet {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(12px);
+      z-index: 200;
+      align-items: flex-end;
+    }
+    .sheet.active { display: flex; }
+    .sheet-content {
+      background: #181822;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 22px 18px calc(var(--safe-bottom) + 18px) 18px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+    .sheet-content h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .sheet-content p { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
+    .sheet-input {
+      width: 100%;
+      background: #101017;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px;
+      color: white;
+      margin-bottom: 10px;
+      font-size: 0.92rem;
+      outline: none;
+    }
+    .sheet-input:focus { border-color: #e1306c; }
+
+    .login-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .login-tab {
+      background: #111119;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 10px;
+      border-radius: 11px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .login-tab.active {
+      background: rgba(225, 48, 108, 0.18);
+      border-color: #e1306c;
+      color: white;
+    }
+
+    /* Tarjeta Descarga Formato IPA */
     .ipa-box {
       background: rgba(225, 48, 108, 0.08);
       border: 1px solid rgba(225, 48, 108, 0.28);
@@ -598,22 +798,9 @@
       padding: 15px;
       margin-top: auto;
     }
-    .ipa-box h4 {
-      font-size: 0.9rem;
-      margin-bottom: 4px;
-      color: #ff85ad;
-    }
-    .ipa-box p {
-      font-size: 0.76rem;
-      color: var(--muted);
-      margin-bottom: 12px;
-      line-height: 1.35;
-    }
-    .ipa-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
+    .ipa-box h4 { font-size: 0.9rem; margin-bottom: 4px; color: #ff85ad; }
+    .ipa-box p { font-size: 0.76rem; color: var(--muted); margin-bottom: 12px; }
+    .ipa-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .btn-ipa {
       background: #1f1f2e;
       border: 1px solid var(--border);
@@ -629,56 +816,19 @@
       justify-content: center;
       gap: 6px;
     }
-    .btn-ipa.primary {
-      background: var(--ig-gradient);
-      border: none;
-    }
+    .btn-ipa.primary { background: var(--ig-gradient); border: none; }
 
     /* Spinner */
     .spinner {
       display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid rgba(255, 255, 255, 0.25);
       border-radius: 50%;
-      border-top-color: white;
+      border-top-color: #ff7597;
       animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Modal Bottom Sheet (Login & Post Detail) */
-    .sheet {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(10px);
-      z-index: 200;
-      align-items: flex-end;
-    }
-    .sheet.active { display: flex; }
-    .sheet-content {
-      background: #181822;
-      border-top-left-radius: 24px;
-      border-top-right-radius: 24px;
-      padding: 22px 18px calc(var(--safe-bottom) + 18px) 18px;
-      width: 100%;
-      max-height: 88vh;
-      overflow-y: auto;
-      border-top: 1px solid var(--border);
-    }
-    .sheet-content h3 { font-size: 1.1rem; margin-bottom: 6px; }
-    .sheet-content p { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
-    .sheet-input {
-      width: 100%;
-      background: #101017;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      color: white;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
-    }
   </style>
 </head>
 <body>
@@ -691,30 +841,61 @@
       </div>
       <div class="brand-text">
         <h1>IG Saver Pro</h1>
-        <p>Perfiles · Destacadas · Historias Anónimas</p>
+        <p>Buscador · Destacadas · Historias Anónimas</p>
       </div>
     </div>
 
-    <div class="header-actions">
-      <div class="status-pill" onclick="openLoginSheet()">
-        <div id="statusDot" class="status-dot"></div>
-        <span id="statusLabel">Sesión</span>
-      </div>
+    <div class="status-pill" onclick="openLoginSheet()">
+      <div id="statusDot" class="status-dot"></div>
+      <span id="statusLabel">Sesión</span>
     </div>
   </header>
 
   <!-- Buscador Principal -->
   <div class="card">
-    <div class="anon-badge">🕵️‍♂️ Modo Anónimo Activo — No apareces en vistos</div>
+    <div class="anon-badge">🕵️‍♂️ Modo 100% Anónimo — No apareces en vistos</div>
     <div class="input-box">
-      <input type="text" id="urlInput" placeholder="Link de Perfil, @usuario, Historia o Post..." autocomplete="off" autocorrect="off" autocapitalize="off" />
+      <input
+        type="text"
+        id="urlInput"
+        placeholder="Busca un nombre, @usuario o pega un link..."
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        oninput="onSearchInputChange(this.value)"
+        onkeydown="if(event.key==='Enter') handleResolve()"
+      />
       <button class="btn-paste" onclick="pasteFromClipboard()">Pegar</button>
     </div>
 
-    <button id="downloadBtn" class="btn-main" onclick="handleResolve()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <span>Explorar Perfil o Descargar</span>
-    </button>
+    <div class="action-buttons-row">
+      <button id="searchBtn" class="btn-search-accounts" onclick="triggerAccountSearch()">
+        🔍 Buscar Cuentas
+      </button>
+      <button id="downloadBtn" class="btn-main" onclick="handleResolve()">
+        <span>Abrir / Descargar</span>
+      </button>
+    </div>
+
+    <!-- Lista desplegable de sugerencias de búsqueda en vivo -->
+    <div id="searchDropdown" class="search-dropdown"></div>
+  </div>
+
+  <!-- Carrusel de Cuentas Favoritas (⭐) -->
+  <div class="quick-section" id="favoritesSection" style="display:none;">
+    <div class="quick-section-title">
+      <span>⭐ Cuentas Favoritas</span>
+    </div>
+    <div class="quick-tray" id="favoritesTray"></div>
+  </div>
+
+  <!-- Carrusel de Cuentas Recientes (🕒) -->
+  <div class="quick-section" id="recentSection" style="display:none;">
+    <div class="quick-section-title">
+      <span>🕒 Búsquedas Recientes</span>
+      <button onclick="clearRecentSearches()">Limpiar</button>
+    </div>
+    <div class="quick-tray" id="recentTray"></div>
   </div>
 
   <!-- Contenedor Dinámico de Perfil o Medios -->
@@ -723,25 +904,30 @@
   <!-- Sección Instalación IPA & Perfil Nativo iOS -->
   <div class="ipa-box" id="ipaSection">
     <h4>📲 Instalar App en tu iPhone (Formato IPA / Nativo)</h4>
-    <p>Descarga el archivo <strong>.ipa</strong> (para AltStore, Sideloadly, ESign o Scarlet) o instala directamente el <strong>Perfil de App Nativa iOS</strong> con un toque.</p>
+    <p>Descarga el archivo <strong>.ipa</strong> o instala directamente el <strong>Perfil de App Nativa iOS</strong> con un toque.</p>
     <div class="ipa-buttons">
       <a href="/download/IGSaverPro.ipa" class="btn-ipa primary" download="IGSaverPro.ipa">📦 Descargar .IPA</a>
       <a href="/install.mobileconfig" class="btn-ipa">⚡ Instalar App Directa</a>
     </div>
   </div>
 
-  <!-- ==================== VISOR ANÓNIMO DE HISTORIAS Y DESTACADAS ==================== -->
+  <!-- ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ROBUSTO ==================== -->
   <div class="story-viewer-modal" id="storyViewer">
-    <div class="story-progress-bars" id="storyProgressBars"></div>
-    <div class="story-top-bar">
-      <div class="story-user-meta">
-        <strong id="storyHeaderTitle">@usuario</strong>
-        <small id="storyHeaderSub">🕵️‍♂️ Viendo de forma 100% anónima</small>
+    <div>
+      <div class="story-progress-bars" id="storyProgressBars"></div>
+      <div class="story-top-bar">
+        <div class="story-user-meta">
+          <strong id="storyHeaderTitle">@usuario</strong>
+          <small id="storyHeaderSub">🕵️‍♂️ Viendo de forma 100% anónima</small>
+        </div>
+        <div class="top-controls-group">
+          <button id="btnSoundToggle" class="btn-sound-toggle" onclick="toggleStorySound()">🔇</button>
+          <button class="btn-close-story" onclick="closeStoryViewer()">✕</button>
+        </div>
       </div>
-      <button class="btn-close-story" onclick="closeStoryViewer()">✕</button>
     </div>
 
-    <div class="story-stage">
+    <div class="story-stage" id="storyStage">
       <div class="story-nav-left" onclick="prevStorySlide()"></div>
       <div id="storyMediaHolder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
       <div class="story-nav-right" onclick="nextStorySlide()"></div>
@@ -755,32 +941,88 @@
     </div>
   </div>
 
-  <!-- Modal para Ver una Publicación del Grid (Foto/Video/Carrusel) -->
+  <!-- ==================== MODAL DE HISTORIA DESTACADA ==================== -->
+  <div class="sheet" id="highlightModal" onclick="closeHighlightModal()">
+    <div class="sheet-content" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <h3 id="hlModalTitle">✨ Destacada</h3>
+          <small id="hlModalCount" style="color:var(--muted)">0 historias</small>
+        </div>
+        <button class="btn-close-story" onclick="closeHighlightModal()">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:12px;">
+        <button class="btn-secondary story-active" onclick="playCurrentHighlightStories()">
+          ▶ Ver una por una
+        </button>
+        <button id="btnToggleSelectAllHl" class="btn-secondary" onclick="toggleSelectAllHighlightItems()">
+          ✓ Seleccionar todas
+        </button>
+      </div>
+
+      <div class="selection-bar">
+        <span id="hlSelectedCountLabel" style="font-size:0.84rem; color:var(--text); font-weight:600;">0 seleccionadas</span>
+        <button id="btnDownloadSelectedHl" class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="downloadSelectedHighlightItems()">
+          ⬇️ Descargar selección
+        </button>
+      </div>
+
+      <div id="hlStoriesGrid" class="stories-row-grid"></div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE PUBLICACIÓN ==================== -->
   <div class="sheet" id="postDetailSheet" onclick="closePostSheet()">
     <div class="sheet-content" onclick="event.stopPropagation()">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 id="postSheetTitle">Publicación</h3>
+        <div>
+          <h3 id="postSheetTitle">Publicación</h3>
+          <small id="postSheetSub" style="color:var(--muted)">0 archivos</small>
+        </div>
         <button class="btn-close-story" onclick="closePostSheet()">✕</button>
       </div>
+
+      <div class="selection-bar" id="postSelectionBar">
+        <div class="checkbox-wrap" onclick="toggleSelectAllPostItems()">
+          <div id="cbSelectAllPost" class="custom-checkbox">✓</div>
+          <span id="postSelectedCountLabel">Seleccionar todas</span>
+        </div>
+        <button id="btnDownloadSelectedPost" class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="downloadSelectedPostItems()">
+          ⬇️ Guardar selección
+        </button>
+      </div>
+
       <div id="postSheetBody" class="results-container"></div>
     </div>
   </div>
 
-  <!-- Modal para Iniciar Sesión -->
+  <!-- Modal para Iniciar / Cambiar Sesión -->
   <div class="sheet" id="loginSheet" onclick="closeLoginSheet()">
     <div class="sheet-content" onclick="event.stopPropagation()">
-      <h3>Sesión Privada de Instagram</h3>
-      <p>Permite ver historias anónimas, destacadas y publicaciones de cuentas privadas que sigas.</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <h3>Sesión de Instagram</h3>
+        <button class="btn-close-story" onclick="closeLoginSheet()">✕</button>
+      </div>
+      <p id="currentSessionBanner">Permite buscar cuentas y ver historias/destacadas privadas de forma anónima.</p>
 
-      <label style="font-size:0.76rem; color:var(--muted)">Opción 1: Cookie sessionid (Recomendado)</label>
-      <input type="text" id="sessionidInput" class="sheet-input" placeholder="Pega tu sessionid..." />
+      <div class="login-tabs">
+        <div id="tabCreds" class="login-tab active" onclick="switchLoginTab('creds')">🔑 Usuario y Clave</div>
+        <div id="tabCookie" class="login-tab" onclick="switchLoginTab('cookie')">🍪 Cookie sessionid</div>
+      </div>
 
-      <label style="font-size:0.76rem; color:var(--muted); margin-top:6px; display:block">Opción 2: Usuario y Contraseña</label>
-      <input type="text" id="userInput" class="sheet-input" placeholder="Usuario" />
-      <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña" />
-      <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA (Opcional)" />
+      <div id="formCreds">
+        <input type="text" id="userInput" class="sheet-input" placeholder="Usuario de Instagram" autocomplete="username" />
+        <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña" autocomplete="current-password" />
+        <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA de 6 dígitos (Si tienes 2FA)" inputmode="numeric" />
+      </div>
 
-      <button class="btn-main" style="margin-top:8px" onclick="submitLogin()">Conectar Cuenta</button>
+      <div id="formCookie" style="display:none;">
+        <input type="text" id="sessionidInput" class="sheet-input" placeholder="Pega aquí tu cookie sessionid..." />
+      </div>
+
+      <button id="btnSubmitLogin" class="btn-main" style="margin-top:6px" onclick="submitLogin()">Conectar Cuenta</button>
+      <button id="btnLogout" class="btn-secondary" style="width:100%; margin-top:8px; display:none; color:#ff6b6b;" onclick="logoutSession()">Cerrar Sesión Actual</button>
       <div id="loginFeedback" style="font-size:0.84rem; margin-top:10px; text-align:center;"></div>
     </div>
   </div>
@@ -790,9 +1032,127 @@
     let activeStoryQueue = [];
     let activeStoryIndex = 0;
     let activeStoryLabel = "";
+    let isStoryMuted = true;
+    let loginMode = "creds";
+    let searchDebounceTimer = null;
 
-    function proxyImg(rawUrl, filename = "media.jpg") {
+    let currentHighlightData = null;
+    let selectedHighlightIndices = new Set();
+
+    let currentPostItems = [];
+    let selectedPostIndices = new Set();
+
+    function directOrProxyUrl(rawUrl) {
+      if (!rawUrl) return "/apple-touch-icon.png";
+      return rawUrl;
+    }
+
+    function proxyFallbackUrl(rawUrl, filename = "media.jpg") {
       return `/api/proxy-file?file_url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(filename)}`;
+    }
+
+    /* ==================== ALMACENAMIENTO DE FAVORITOS Y RECIENTES ==================== */
+    function getFavorites() {
+      try {
+        return JSON.parse(localStorage.getItem('ig_fav_accounts') || '[]');
+      } catch (e) { return []; }
+    }
+
+    function saveFavorites(favs) {
+      localStorage.setItem('ig_fav_accounts', JSON.stringify(favs));
+      renderFavoritesBar();
+    }
+
+    function isAccountFavorite(username) {
+      const favs = getFavorites();
+      return favs.some(f => f.username.toLowerCase() === username.toLowerCase());
+    }
+
+    function toggleFavoriteAccount(user) {
+      let favs = getFavorites();
+      const idx = favs.findIndex(f => f.username.toLowerCase() === user.username.toLowerCase());
+      if (idx >= 0) {
+        favs.splice(idx, 1);
+      } else {
+        favs.unshift({
+          username: user.username,
+          full_name: user.full_name,
+          profile_pic: user.profile_pic_hd || user.profile_pic_url
+        });
+        if (favs.length > 20) favs.pop();
+      }
+      saveFavorites(favs);
+      updateFavoriteButtonState(user.username);
+    }
+
+    function updateFavoriteButtonState(username) {
+      const btn = document.getElementById('btnToggleFav');
+      if (!btn) return;
+      const isFav = isAccountFavorite(username);
+      btn.innerHTML = isFav ? '★ En Favoritos' : '⭐ Añadir a Favoritos';
+      btn.classList.toggle('btn-fav', isFav);
+    }
+
+    function renderFavoritesBar() {
+      const favs = getFavorites();
+      const sec = document.getElementById('favoritesSection');
+      const tray = document.getElementById('favoritesTray');
+      if (!favs || favs.length === 0) {
+        sec.style.display = 'none';
+        return;
+      }
+      sec.style.display = 'block';
+      tray.innerHTML = favs.map(f => `
+        <div class="quick-item" onclick="selectSearchedAccount('${f.username}')">
+          <div class="quick-avatar">
+            <img src="${directOrProxyUrl(f.profile_pic)}" loading="lazy" alt="@${f.username}" onerror="this.src=proxyFallbackUrl('${f.profile_pic}')" />
+          </div>
+          <span class="quick-name">@${f.username}</span>
+        </div>
+      `).join('');
+    }
+
+    function getRecents() {
+      try {
+        return JSON.parse(localStorage.getItem('ig_recent_searches') || '[]');
+      } catch (e) { return []; }
+    }
+
+    function addRecentSearch(user) {
+      let recents = getRecents();
+      recents = recents.filter(r => r.username.toLowerCase() !== user.username.toLowerCase());
+      recents.unshift({
+        username: user.username,
+        full_name: user.full_name,
+        profile_pic: user.profile_pic_hd || user.profile_pic_url
+      });
+      if (recents.length > 15) recents.pop();
+      localStorage.setItem('ig_recent_searches', JSON.stringify(recents));
+      renderRecentsBar();
+    }
+
+    function clearRecentSearches() {
+      localStorage.removeItem('ig_recent_searches');
+      renderRecentsBar();
+    }
+
+    function renderRecentsBar() {
+      const recents = getRecents();
+      const sec = document.getElementById('recentSection');
+      const tray = document.getElementById('recentTray');
+      if (!recents || recents.length === 0) {
+        sec.style.display = 'none';
+        return;
+      }
+      sec.style.display = 'block';
+      tray.innerHTML = recents.map(r => `
+        <div class="quick-item" onclick="selectSearchedAccount('${r.username}')">
+          <div class="quick-avatar recent">
+            <img src="${directOrProxyUrl(r.profile_pic)}" loading="lazy" alt="@${r.username}" onerror="this.src=proxyFallbackUrl('${r.profile_pic}')" />
+          </div>
+          <span class="quick-name">@${r.username}</span>
+        </div>
+      `).join('');
     }
 
     async function checkStatus() {
@@ -801,16 +1161,101 @@
         const data = await res.json();
         const dot = document.getElementById('statusDot');
         const label = document.getElementById('statusLabel');
+        const banner = document.getElementById('currentSessionBanner');
+        const logoutBtn = document.getElementById('btnLogout');
+
         if (data.logged_in) {
           dot.classList.add('active');
           label.textContent = data.username ? `@${data.username}` : 'Conectado';
+          banner.innerHTML = `<span style="color:#4cd964; font-weight:600">✅ Conectado como @${data.username || data.user_id}</span>.`;
+          logoutBtn.style.display = 'flex';
         } else {
           dot.classList.remove('active');
-          label.textContent = 'Conectar';
+          label.textContent = 'Iniciar Sesión';
+          banner.textContent = 'Inicia sesión para buscar perfiles y ver destacadas e historias privadas.';
+          logoutBtn.style.display = 'none';
         }
       } catch (e) {
         console.error(e);
       }
+    }
+
+    function switchLoginTab(mode) {
+      loginMode = mode;
+      document.getElementById('tabCreds').classList.toggle('active', mode === 'creds');
+      document.getElementById('tabCookie').classList.toggle('active', mode === 'cookie');
+      document.getElementById('formCreds').style.display = mode === 'creds' ? 'block' : 'none';
+      document.getElementById('formCookie').style.display = mode === 'cookie' ? 'block' : 'none';
+      document.getElementById('loginFeedback').textContent = '';
+    }
+
+    function onSearchInputChange(val) {
+      clearTimeout(searchDebounceTimer);
+      const trimmed = val.trim();
+      const dropdown = document.getElementById('searchDropdown');
+
+      if (!trimmed || trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.includes('instagram.com/')) {
+        dropdown.classList.remove('active');
+        return;
+      }
+
+      if (trimmed.length >= 2) {
+        searchDebounceTimer = setTimeout(() => {
+          triggerAccountSearch(true);
+        }, 380);
+      } else {
+        dropdown.classList.remove('active');
+      }
+    }
+
+    async function triggerAccountSearch(silent = false) {
+      const q = document.getElementById('urlInput').value.trim();
+      const dropdown = document.getElementById('searchDropdown');
+
+      if (!q) {
+        if (!silent) alert('Escribe el nombre o @usuario que deseas buscar.');
+        return;
+      }
+
+      dropdown.classList.add('active');
+      dropdown.innerHTML = `<div style="padding:14px; text-align:center; color:var(--muted); font-size:0.84rem;"><div class="spinner" style="vertical-align:middle; margin-right:8px;"></div>Buscando "${escapeHtml(q)}"...</div>`;
+
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error al buscar cuentas.');
+
+        if (!data.users || data.users.length === 0) {
+          dropdown.innerHTML = `<div style="padding:14px; text-align:center; color:var(--muted); font-size:0.84rem;">No se encontraron cuentas para "${escapeHtml(q)}".</div>`;
+          return;
+        }
+
+        dropdown.innerHTML = data.users.map(u => `
+          <div class="search-item" onclick="selectSearchedAccount('${u.username}')">
+            <div class="search-avatar-wrap ${u.has_stories ? 'has-stories' : ''}">
+              <img src="${directOrProxyUrl(u.profile_pic_url)}" loading="lazy" alt="@${u.username}" onerror="this.src=proxyFallbackUrl('${u.profile_pic_url}')" />
+            </div>
+            <div class="search-user-info">
+              <div class="search-username">
+                <span>@${u.username}</span>
+                ${u.is_verified ? '<span class="verified-badge">✓</span>' : ''}
+                ${u.is_private ? '<span title="Cuenta Privada">🔒</span>' : ''}
+                ${u.following ? '<span class="following-tag">Siguiendo</span>' : ''}
+              </div>
+              <div class="search-fullname">${escapeHtml(u.full_name || '')}</div>
+            </div>
+            <span style="color:#ff7597; font-size:0.78rem; font-weight:700;">Ver Perfil →</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        dropdown.innerHTML = `<div style="padding:14px; text-align:center; color:#ff6b6b; font-size:0.82rem;">❌ ${err.message}</div>`;
+      }
+    }
+
+    function selectSearchedAccount(username) {
+      document.getElementById('searchDropdown').classList.remove('active');
+      document.getElementById('urlInput').value = `@${username}`;
+      handleResolve();
     }
 
     async function pasteFromClipboard() {
@@ -818,6 +1263,7 @@
         const text = await navigator.clipboard.readText();
         if (text) {
           document.getElementById('urlInput').value = text.trim();
+          document.getElementById('searchDropdown').classList.remove('active');
           handleResolve();
         }
       } catch (e) {
@@ -829,30 +1275,28 @@
       const inputVal = document.getElementById('urlInput').value.trim();
       const btn = document.getElementById('downloadBtn');
       const resultsDiv = document.getElementById('results');
+      document.getElementById('searchDropdown').classList.remove('active');
 
       if (!inputVal) {
-        alert('Escribe un @usuario o pega un enlace de Instagram.');
+        alert('Busca una cuenta, escribe un @usuario o pega un enlace de Instagram.');
         return;
       }
 
       btn.disabled = true;
-      btn.innerHTML = '<div class="spinner"></div><span>Cargando en modo anónimo...</span>';
+      btn.innerHTML = '<div class="spinner"></div><span>Cargando...</span>';
       resultsDiv.innerHTML = '';
 
       try {
         const res = await fetch(`/api/resolve?url=${encodeURIComponent(inputVal)}`);
         const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.detail || 'Error al obtener la información.');
-        }
+        if (!res.ok) throw new Error(data.detail || 'Error al obtener la información.');
 
         if (data.type === 'profile') {
           currentProfileData = data;
+          addRecentSearch(data.user);
           renderFullProfile(data);
         } else if (data.type === 'story' || data.type === 'user_stories' || data.type === 'highlight') {
           renderMediaCards(data.items, data.username || 'usuario');
-          // También ofrecer abrir en el visor de historias
           openStoryViewer(data.items, `@${data.username || 'usuario'}`);
         } else {
           renderMediaCards(data.items, data.username || 'usuario');
@@ -865,33 +1309,31 @@
         `;
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-          <span>Explorar Perfil o Descargar</span>
-        `;
+        btn.innerHTML = '<span>Abrir / Descargar</span>';
       }
     }
 
-    /* Renderizar Perfil Completo (Foto HD + Historias Anónimas + Destacadas + Publicaciones) */
+    /* Renderizar Perfil */
     function renderFullProfile(data) {
       const resultsDiv = document.getElementById('results');
       const u = data.user;
       const hasStories = data.stories && data.stories.length > 0;
-      const avatarProxy = proxyImg(u.profile_pic_hd, `${u.username}_profile_hd.jpg`);
+      const avatarUrl = directOrProxyUrl(u.profile_pic_hd);
+      const isFav = isAccountFavorite(u.username);
 
       const highlightsHtml = (data.highlights && data.highlights.length > 0)
         ? `
           <div class="section-subtitle">
             <span>✨ Historias Destacadas (${data.highlights.length})</span>
-            <small style="color:#4cd964; font-weight:600">Toque para ver anónimo</small>
+            <small style="color:#4cd964; font-weight:600">Toque para ver</small>
           </div>
           <div class="highlights-tray">
             ${data.highlights.map(h => `
-              <div class="highlight-item" onclick="loadAndOpenHighlight('${h.pk}', '${h.title.replace(/'/g, "")}')">
+              <div class="highlight-item" onclick="openHighlightExplorer('${h.pk}', '${escapeHtml(h.title).replace(/'/g, "")}')">
                 <div class="highlight-circle">
-                  <img src="${proxyImg(h.cover_url)}" loading="lazy" alt="${h.title}" />
+                  <img src="${directOrProxyUrl(h.cover_url)}" loading="lazy" alt="${escapeHtml(h.title)}" onerror="this.src=proxyFallbackUrl('${h.cover_url}')" />
                 </div>
-                <span class="highlight-title">${h.title}</span>
+                <span class="highlight-title">${escapeHtml(h.title)}</span>
               </div>
             `).join('')}
           </div>
@@ -901,39 +1343,35 @@
       const postsHtml = (data.posts && data.posts.length > 0)
         ? `
           <div class="section-subtitle">
-            <span>📸 Publicaciones Recientes (${data.posts.length})</span>
-            <small>Toca cualquiera para guardar</small>
+            <span>📸 Publicaciones (<span id="loadedPostsCount">${data.posts.length}</span> de ${u.media_count})</span>
+            <small>Toca para ver y seleccionar</small>
           </div>
-          <div class="posts-grid">
-            ${data.posts.map((post, idx) => {
-              let badge = '';
-              if (post.media_type === 'carousel') badge = `❐ ${post.items.length}`;
-              else if (post.media_type === 'video') badge = '▶ Video';
-              return `
-                <div class="grid-cell" onclick="openProfilePost(${idx})">
-                  <img src="${proxyImg(post.thumbnail)}" loading="lazy" alt="Post" />
-                  ${badge ? `<span class="grid-type-badge">${badge}</span>` : ''}
-                </div>
-              `;
-            }).join('')}
+          <div id="profilePostsGrid" class="posts-grid">
+            ${buildPostsGridCellsHtml(data.posts, 0)}
           </div>
+          ${data.next_cursor ? `
+            <button id="btnLoadMorePosts" class="btn-secondary" style="width:100%; margin-top:12px;" onclick="loadMoreProfilePosts()">
+              ➕ Cargar más publicaciones
+            </button>
+          ` : ''}
         `
-        : `<p style="color:var(--muted); font-size:0.84rem; text-align:center; padding:14px 0;">No hay publicaciones visibles o la cuenta es privada.</p>`;
+        : `<p style="color:var(--muted); font-size:0.84rem; text-align:center; padding:14px 0;">No hay publicaciones visibles o la cuenta es privada y no la sigues.</p>`;
 
       resultsDiv.innerHTML = `
         <div class="profile-card">
           <div class="profile-header">
-            <div class="avatar-ring ${hasStories ? 'has-stories' : ''}" onclick="${hasStories ? 'openProfileActiveStories()' : `saveToPhotos('${avatarProxy}', '${u.username}_profile_hd.jpg', 'photo')`}">
-              <img src="${avatarProxy}" alt="@${u.username}" />
+            <div class="avatar-ring ${hasStories ? 'has-stories' : ''}" onclick="${hasStories ? 'openProfileActiveStories()' : `saveToPhotos('${avatarUrl}', '${u.username}_profile_hd.jpg', 'photo')`}">
+              <img src="${avatarUrl}" alt="@${u.username}" onerror="this.src=proxyFallbackUrl('${u.profile_pic_hd}')" />
               ${hasStories ? `<span class="story-badge-ring">${data.stories.length}</span>` : ''}
             </div>
 
             <div class="profile-info">
               <div class="profile-username">
                 <span>@${u.username}</span>
+                ${u.is_verified ? '<span class="verified-badge">✓</span>' : ''}
                 ${u.is_private ? '<span title="Cuenta Privada">🔒</span>' : ''}
               </div>
-              <div class="profile-fullname">${u.full_name}</div>
+              <div class="profile-fullname">${escapeHtml(u.full_name)}</div>
               <div class="profile-stats">
                 <div><span>${u.media_count}</span> posts</div>
                 <div><span>${formatNum(u.follower_count)}</span> seg.</div>
@@ -948,15 +1386,74 @@
             <button class="btn-secondary ${hasStories ? 'story-active' : ''}" onclick="openProfileActiveStories()">
               🕵️‍♂️ ${hasStories ? `Ver Historias (${data.stories.length})` : 'Sin Historias Hoy'}
             </button>
-            <button class="btn-secondary" onclick="saveToPhotos('${avatarProxy}', '${u.username}_profile_hd.jpg', 'photo')">
+            <button class="btn-secondary" onclick="saveToPhotos('${avatarUrl}', '${u.username}_profile_hd.jpg', 'photo')">
               🖼️ Guardar Foto HD
             </button>
           </div>
+
+          <button id="btnToggleFav" class="btn-secondary ${isFav ? 'btn-fav' : ''}" style="width:100%; margin-bottom:14px;" onclick="toggleFavoriteAccount(currentProfileData.user)">
+            ${isFav ? '★ En Favoritos' : '⭐ Añadir a Favoritos'}
+          </button>
 
           ${highlightsHtml}
           ${postsHtml}
         </div>
       `;
+    }
+
+    function buildPostsGridCellsHtml(postsArray, startIndex) {
+      return postsArray.map((post, i) => {
+        const idx = startIndex + i;
+        let badge = '';
+        if (post.media_type === 'carousel') badge = `❐ ${post.items.length}`;
+        else if (post.media_type === 'video') badge = '▶ Reel';
+        return `
+          <div class="grid-cell" onclick="openProfilePost(${idx})">
+            <img src="${directOrProxyUrl(post.thumbnail)}" loading="lazy" alt="Post" onerror="this.src=proxyFallbackUrl('${post.thumbnail}')" />
+            ${badge ? `<span class="grid-type-badge">${badge}</span>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadMoreProfilePosts() {
+      if (!currentProfileData || !currentProfileData.next_cursor) return;
+      const btn = document.getElementById('btnLoadMorePosts');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Cargando más publicaciones...';
+      }
+
+      try {
+        const u = currentProfileData.user;
+        const url = `/api/user-posts/${encodeURIComponent(u.pk)}?username=${encodeURIComponent(u.username)}&cursor=${encodeURIComponent(currentProfileData.next_cursor)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error al cargar más');
+
+        const startIndex = currentProfileData.posts.length;
+        currentProfileData.posts.push(...data.posts);
+        currentProfileData.next_cursor = data.next_cursor || '';
+
+        const grid = document.getElementById('profilePostsGrid');
+        if (grid) {
+          grid.insertAdjacentHTML('beforeend', buildPostsGridCellsHtml(data.posts, startIndex));
+        }
+        const countEl = document.getElementById('loadedPostsCount');
+        if (countEl) countEl.textContent = String(currentProfileData.posts.length);
+
+        if (!currentProfileData.next_cursor && btn) {
+          btn.remove();
+        } else if (btn) {
+          btn.disabled = false;
+          btn.textContent = '➕ Cargar más publicaciones';
+        }
+      } catch (e) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '➕ Reintentar cargar más';
+        }
+      }
     }
 
     function openProfileActiveStories() {
@@ -967,39 +1464,156 @@
       openStoryViewer(currentProfileData.stories, `@${currentProfileData.user.username} · Historias`);
     }
 
-    async function loadAndOpenHighlight(highlightPk, title) {
+    /* ==================== EXPLORADOR DE DESTACADAS ==================== */
+    async function openHighlightExplorer(highlightPk, title) {
+      selectedHighlightIndices.clear();
+      document.getElementById('hlModalTitle').textContent = `✨ ${title}`;
+      document.getElementById('hlModalCount').textContent = 'Cargando historias...';
+      document.getElementById('hlStoriesGrid').innerHTML = '<div style="grid-column: span 2; text-align:center; padding:20px; color:var(--muted);"><div class="spinner"></div><p style="margin-top:8px;">Cargando historias destacadas...</p></div>';
+      document.getElementById('highlightModal').classList.add('active');
+
       try {
         const res = await fetch(`/api/highlight/${encodeURIComponent(highlightPk)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'No se pudo cargar la destacada');
         if (!data.items || data.items.length === 0) {
-          alert('Esta destacada no contiene elementos.');
-          return;
+          throw new Error('Esta destacada no contiene historias.');
         }
-        openStoryViewer(data.items, `✨ ${title} (@${data.username})`);
+
+        currentHighlightData = data;
+        document.getElementById('hlModalCount').textContent = `${data.items.length} historia(s) disponibles`;
+        renderHighlightGrid();
       } catch (err) {
-        alert('Error al abrir destacada: ' + err.message);
+        document.getElementById('hlStoriesGrid').innerHTML = `<div style="grid-column: span 2; padding:16px; background:rgba(231,76,60,0.15); border-radius:12px; color:#ff6b6b; text-align:center;">❌ ${err.message}</div>`;
       }
     }
 
-    /* Visor Anónimo de Historias / Destacadas */
+    function renderHighlightGrid() {
+      if (!currentHighlightData || !currentHighlightData.items) return;
+      const items = currentHighlightData.items;
+      const grid = document.getElementById('hlStoriesGrid');
+
+      grid.innerHTML = items.map((item, idx) => {
+        const isSelected = selectedHighlightIndices.has(idx);
+        const isVideo = item.media_type === 'video';
+        const mediaSrc = directOrProxyUrl(item.thumbnail || item.url);
+
+        return `
+          <div class="story-card-item ${isSelected ? 'selected' : ''}">
+            <div class="story-card-thumb" onclick="playHighlightStoryAt(${idx})">
+              <img src="${mediaSrc}" loading="lazy" alt="Story" onerror="this.src=proxyFallbackUrl('${item.thumbnail || item.url}')" />
+              <div class="grid-type-badge" style="bottom:6px; left:6px; top:auto; right:auto;">
+                ${isVideo ? '▶ Video' : '📷 Foto'}
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#14141d;">
+              <small style="color:var(--muted); font-size:0.7rem;">#${idx + 1}</small>
+              <div class="custom-checkbox ${isSelected ? 'checked' : ''}" onclick="toggleHighlightSelection(${idx})">
+                ${isSelected ? '✓' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      updateHighlightSelectionLabel();
+    }
+
+    function playHighlightStoryAt(startIndex) {
+      if (!currentHighlightData || !currentHighlightData.items) return;
+      closeHighlightModal();
+      openStoryViewerFromIndex(currentHighlightData.items, `✨ ${currentHighlightData.title}`, startIndex);
+    }
+
+    function toggleHighlightSelection(index) {
+      if (selectedHighlightIndices.has(index)) {
+        selectedHighlightIndices.delete(index);
+      } else {
+        selectedHighlightIndices.add(index);
+      }
+      renderHighlightGrid();
+    }
+
+    function toggleSelectAllHighlightItems() {
+      if (!currentHighlightData || !currentHighlightData.items) return;
+      if (selectedHighlightIndices.size === currentHighlightData.items.length) {
+        selectedHighlightIndices.clear();
+      } else {
+        selectedHighlightIndices = new Set(currentHighlightData.items.map((_, i) => i));
+      }
+      renderHighlightGrid();
+    }
+
+    function updateHighlightSelectionLabel() {
+      const count = selectedHighlightIndices.size;
+      const total = currentHighlightData?.items?.length || 0;
+      document.getElementById('hlSelectedCountLabel').textContent = `${count} de ${total} seleccionada(s)`;
+      document.getElementById('btnDownloadSelectedHl').textContent = count > 0 ? `⬇️ Guardar (${count})` : '⬇️ Guardar selección';
+      document.getElementById('btnToggleSelectAllHl').textContent = count === total && total > 0 ? 'Deseleccionar todas' : '✓ Seleccionar todas';
+    }
+
+    async function downloadSelectedHighlightItems() {
+      if (!currentHighlightData || selectedHighlightIndices.size === 0) {
+        alert('Selecciona al menos una historia tocando las casillas.');
+        return;
+      }
+      const selectedItems = Array.from(selectedHighlightIndices).map(i => currentHighlightData.items[i]);
+      await batchSaveToPhotos(selectedItems);
+    }
+
+    function playCurrentHighlightStories() {
+      if (!currentHighlightData || !currentHighlightData.items || currentHighlightData.items.length === 0) return;
+      closeHighlightModal();
+      openStoryViewer(currentHighlightData.items, `✨ ${currentHighlightData.title} (@${currentHighlightData.username})`);
+    }
+
+    function closeHighlightModal() {
+      document.getElementById('highlightModal').classList.remove('active');
+    }
+
+    /* ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ROBUSTO ==================== */
     function openStoryViewer(items, titleLabel) {
-      activeStoryQueue = items;
-      activeStoryIndex = 0;
-      activeStoryLabel = titleLabel;
+      openStoryViewerFromIndex(items, titleLabel, 0);
+    }
+
+    function openStoryViewerFromIndex(items, titleLabel, startIndex = 0) {
+      activeStoryQueue = items || [];
+      activeStoryIndex = startIndex;
+      activeStoryLabel = titleLabel || "Historias";
+      isStoryMuted = true;
+      document.getElementById('btnSoundToggle').textContent = '🔇';
       document.getElementById('storyViewer').classList.add('active');
       renderCurrentStorySlide();
     }
 
     function closeStoryViewer() {
       const holder = document.getElementById('storyMediaHolder');
-      holder.innerHTML = '';
+      if (holder) holder.innerHTML = '';
       document.getElementById('storyViewer').classList.remove('active');
     }
 
+    function toggleStorySound() {
+      const holder = document.getElementById('storyMediaHolder');
+      const video = holder.querySelector('video');
+      const btn = document.getElementById('btnSoundToggle');
+      if (video) {
+        isStoryMuted = !isStoryMuted;
+        video.muted = isStoryMuted;
+        btn.textContent = isStoryMuted ? '🔇' : '🔊';
+      }
+    }
+
     function renderCurrentStorySlide() {
+      if (!activeStoryQueue || activeStoryQueue.length === 0) {
+        closeStoryViewer();
+        return;
+      }
       const item = activeStoryQueue[activeStoryIndex];
-      if (!item) return;
+      if (!item) {
+        closeStoryViewer();
+        return;
+      }
 
       const barsContainer = document.getElementById('storyProgressBars');
       barsContainer.innerHTML = activeStoryQueue.map((_, i) => {
@@ -1012,12 +1626,50 @@
       document.getElementById('storyHeaderTitle').textContent = `${activeStoryLabel} (${activeStoryIndex + 1}/${activeStoryQueue.length})`;
       document.getElementById('storyHeaderSub').textContent = `🕵️‍♂️ Anónimo ${item.taken_at ? '· ' + item.taken_at : ''}`;
 
-      const fileProxy = proxyImg(item.url, item.filename);
       const holder = document.getElementById('storyMediaHolder');
+      holder.innerHTML = '';
+
+      const soundBtn = document.getElementById('btnSoundToggle');
       if (item.media_type === 'video') {
-        holder.innerHTML = `<video src="${fileProxy}" autoplay controls playsinline style="max-height:100%; max-width:100%"></video>`;
+        soundBtn.style.display = 'flex';
+        const video = document.createElement('video');
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('preload', 'auto');
+        video.muted = isStoryMuted;
+        video.defaultMuted = isStoryMuted;
+        video.autoplay = true;
+        video.loop = true;
+        video.controls = false;
+        video.style.maxHeight = '100%';
+        video.style.maxWidth = '100%';
+        video.style.objectFit = 'contain';
+
+        // Intento directo rápido por CDN (soporta meta no-referrer)
+        video.src = directOrProxyUrl(item.url);
+        holder.appendChild(video);
+
+        video.play().catch(e => {
+          console.log('Reproducción diferida:', e);
+        });
+
+        video.onerror = () => {
+          console.log('Error en CDN directo, usando túnel proxy con soporte HTTP Range');
+          video.src = proxyFallbackUrl(item.url, item.filename);
+          video.play().catch(e => console.log('Proxy diferido:', e));
+        };
       } else {
-        holder.innerHTML = `<img src="${fileProxy}" alt="Story" />`;
+        soundBtn.style.display = 'none';
+        const img = document.createElement('img');
+        img.alt = 'Story';
+        img.style.maxHeight = '100%';
+        img.style.maxWidth = '100%';
+        img.style.objectFit = 'contain';
+        img.src = directOrProxyUrl(item.url);
+        img.onerror = () => {
+          img.src = proxyFallbackUrl(item.url, item.filename);
+        };
+        holder.appendChild(img);
       }
     }
 
@@ -1040,20 +1692,90 @@
     function saveCurrentStoryToPhotos() {
       const item = activeStoryQueue[activeStoryIndex];
       if (!item) return;
-      const fileProxy = proxyImg(item.url, item.filename);
-      saveToPhotos(fileProxy, item.filename, item.media_type);
+      saveToPhotos(directOrProxyUrl(item.url), item.filename, item.media_type);
     }
 
-    /* Abrir Publicación del Grid */
+    /* ==================== MODAL DE PUBLICACIÓN ==================== */
     function openProfilePost(postIndex) {
       if (!currentProfileData || !currentProfileData.posts[postIndex]) return;
       const post = currentProfileData.posts[postIndex];
       const uname = currentProfileData.user.username;
 
-      document.getElementById('postSheetTitle').textContent = `@${uname} · ${post.items.length} archivo(s)`;
-      const body = document.getElementById('postSheetBody');
-      body.innerHTML = buildMediaCardsHtml(post.items, uname);
+      currentPostItems = post.items || [];
+      selectedPostIndices = new Set(currentPostItems.map((_, i) => i));
+
+      document.getElementById('postSheetTitle').textContent = `@${uname}`;
+      document.getElementById('postSheetSub').textContent = `${currentPostItems.length} archivo(s)`;
+
+      renderPostDetailCards();
       document.getElementById('postDetailSheet').classList.add('active');
+    }
+
+    function renderPostDetailCards() {
+      const body = document.getElementById('postSheetBody');
+      const allSelected = selectedPostIndices.size === currentPostItems.length;
+
+      document.getElementById('cbSelectAllPost').className = `custom-checkbox ${allSelected ? 'checked' : ''}`;
+      document.getElementById('postSelectedCountLabel').textContent = `${selectedPostIndices.size} de ${currentPostItems.length} seleccionados`;
+      document.getElementById('btnDownloadSelectedPost').textContent = selectedPostIndices.size > 0 
+        ? `⬇️ Guardar (${selectedPostIndices.size})` 
+        : '⬇️ Guardar selección';
+
+      body.innerHTML = currentPostItems.map((item, idx) => {
+        const isSelected = selectedPostIndices.has(idx);
+        const isVideo = item.media_type === 'video';
+        const mediaSrc = directOrProxyUrl(item.url);
+
+        return `
+          <div class="media-card" style="border-color:${isSelected ? 'var(--accent)' : 'var(--border)'}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span><strong>Elemento #${idx + 1}</strong> (${item.media_type.toUpperCase()})</span>
+              <div class="checkbox-wrap" onclick="togglePostItemSelection(${idx})">
+                <div class="custom-checkbox ${isSelected ? 'checked' : ''}">${isSelected ? '✓' : ''}</div>
+              </div>
+            </div>
+
+            <div class="media-preview">
+              ${isVideo
+                ? `<video src="${proxyFallbackUrl(item.url, item.filename)}" controls playsinline preload="metadata"></video>`
+                : `<img src="${mediaSrc}" loading="lazy" alt="Media" onerror="this.src=proxyFallbackUrl('${item.url}')" />`
+              }
+            </div>
+
+            <button class="btn-save-photos" style="margin-top:10px;" onclick="saveToPhotos('${mediaSrc}', '${item.filename}', '${item.media_type}')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Guardar este archivo en Fotos</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function togglePostItemSelection(idx) {
+      if (selectedPostIndices.has(idx)) {
+        selectedPostIndices.delete(idx);
+      } else {
+        selectedPostIndices.add(idx);
+      }
+      renderPostDetailCards();
+    }
+
+    function toggleSelectAllPostItems() {
+      if (selectedPostIndices.size === currentPostItems.length) {
+        selectedPostIndices.clear();
+      } else {
+        selectedPostIndices = new Set(currentPostItems.map((_, i) => i));
+      }
+      renderPostDetailCards();
+    }
+
+    async function downloadSelectedPostItems() {
+      if (selectedPostIndices.size === 0) {
+        alert('Selecciona al menos un archivo para guardar.');
+        return;
+      }
+      const selected = Array.from(selectedPostIndices).map(i => currentPostItems[i]);
+      await batchSaveToPhotos(selected);
     }
 
     function closePostSheet() {
@@ -1062,41 +1784,62 @@
     }
 
     function renderMediaCards(items, username) {
+      currentPostItems = items || [];
+      selectedPostIndices = new Set(currentPostItems.map((_, i) => i));
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = buildMediaCardsHtml(items, username);
-    }
 
-    function buildMediaCardsHtml(items, username) {
-      if (!items || items.length === 0) {
-        return '<p style="color:var(--muted)">No se encontraron archivos.</p>';
-      }
-      return items.map((item, idx) => {
-        const isVideo = item.media_type === 'video';
-        const fileProxy = proxyImg(item.url, item.filename);
-        return `
-          <div class="media-card">
-            <div class="media-preview">
-              ${isVideo
-                ? `<video src="${fileProxy}" controls playsinline preload="metadata"></video>`
-                : `<img src="${fileProxy}" loading="lazy" alt="Instagram Media" />`
-              }
-            </div>
-            <div class="media-meta">
-              <span><strong>@${username}</strong> · ${item.media_type.toUpperCase()} #${idx + 1}</span>
-            </div>
-            <button class="btn-save-photos" onclick="saveToPhotos('${fileProxy}', '${item.filename}', '${item.media_type}')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-              <span>Guardar en Fotos</span>
+      resultsDiv.innerHTML = `
+        <div class="card" style="margin-bottom:12px;">
+          <div class="selection-bar" style="margin-bottom:0;">
+            <span style="font-weight:700;">@${username} · ${items.length} elemento(s)</span>
+            <button class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="batchSaveToPhotos(currentPostItems)">
+              ⬇️ Guardar todos en Fotos
             </button>
           </div>
-        `;
-      }).join('');
+        </div>
+        ${items.map((item, idx) => {
+          const isVideo = item.media_type === 'video';
+          const mediaSrc = directOrProxyUrl(item.url);
+          return `
+            <div class="media-card">
+              <div class="media-preview">
+                ${isVideo
+                  ? `<video src="${proxyFallbackUrl(item.url, item.filename)}" controls playsinline preload="metadata"></video>`
+                  : `<img src="${mediaSrc}" loading="lazy" alt="Media" onerror="this.src=proxyFallbackUrl('${item.url}')" />`
+                }
+              </div>
+              <div class="media-meta">
+                <span>#${idx + 1} · ${item.media_type.toUpperCase()}</span>
+              </div>
+              <button class="btn-save-photos" onclick="saveToPhotos('${mediaSrc}', '${item.filename}', '${item.media_type}')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                <span>Guardar en Fotos</span>
+              </button>
+            </div>
+          `;
+        }).join('')}
+      `;
     }
 
-    /* Guardar directamente en la app Fotos de iOS */
-    async function saveToPhotos(fileUrl, filename, mediaType) {
+    async function batchSaveToPhotos(itemsList) {
+      let saved = 0;
+      for (const item of itemsList) {
+        try {
+          await saveToPhotos(directOrProxyUrl(item.url), item.filename, item.media_type, false);
+          saved++;
+        } catch (e) {
+          console.warn('Error en descarga:', e);
+        }
+      }
+      alert(`✅ Se procesaron ${saved} de ${itemsList.length} archivos para guardar en Fotos.`);
+    }
+
+    async function saveToPhotos(fileUrl, filename, mediaType, notify = true) {
       try {
-        const res = await fetch(fileUrl);
+        let res = await fetch(fileUrl);
+        if (!res.ok) {
+          res = await fetch(proxyFallbackUrl(fileUrl, filename));
+        }
         const blob = await res.blob();
         const mime = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
         const file = new File([blob], filename, { type: mime });
@@ -1108,7 +1851,7 @@
           });
         } else {
           const a = document.createElement('a');
-          a.href = fileUrl;
+          a.href = URL.createObjectURL(blob);
           a.download = filename;
           document.body.appendChild(a);
           a.click();
@@ -1116,7 +1859,7 @@
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
-          window.location.href = fileUrl;
+          window.location.href = proxyFallbackUrl(fileUrl, filename);
         }
       }
     }
@@ -1128,7 +1871,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     }
 
     function openLoginSheet() { document.getElementById('loginSheet').classList.add('active'); }
@@ -1136,15 +1879,18 @@
 
     async function submitLogin() {
       const fb = document.getElementById('loginFeedback');
-      fb.textContent = 'Conectando con Instagram...';
+      const btn = document.getElementById('btnSubmitLogin');
+      fb.textContent = 'Autenticando con Instagram...';
       fb.style.color = 'var(--muted)';
+      btn.disabled = true;
 
-      const payload = {
-        sessionid: document.getElementById('sessionidInput').value || null,
-        username: document.getElementById('userInput').value || null,
-        password: document.getElementById('passInput').value || null,
-        verification_code: document.getElementById('code2faInput').value || null,
-      };
+      const payload = loginMode === 'cookie'
+        ? { sessionid: document.getElementById('sessionidInput').value.trim() || null }
+        : {
+            username: document.getElementById('userInput').value.trim() || null,
+            password: document.getElementById('passInput').value || null,
+            verification_code: document.getElementById('code2faInput').value.trim() || null,
+          };
 
       try {
         const res = await fetch('/api/login', {
@@ -1154,21 +1900,34 @@
         });
         const data = await res.json();
         if (res.ok) {
-          fb.textContent = '✅ Sesión privada conectada';
+          fb.textContent = '✅ ' + (data.message || 'Sesión iniciada con éxito');
           fb.style.color = 'var(--success)';
-          setTimeout(closeLoginSheet, 1000);
-          checkStatus();
+          await checkStatus();
+          setTimeout(closeLoginSheet, 900);
         } else {
           fb.textContent = '❌ ' + (data.detail || 'Error de autenticación');
-          fb.style.color = '#e74c3c';
+          fb.style.color = '#ff6b6b';
         }
       } catch (e) {
-        fb.textContent = '❌ Error de red';
-        fb.style.color = '#e74c3c';
+        fb.textContent = '❌ Error de conexión con el servidor';
+        fb.style.color = '#ff6b6b';
+      } finally {
+        btn.disabled = false;
       }
     }
 
+    async function logoutSession() {
+      const fb = document.getElementById('loginFeedback');
+      fb.textContent = 'Cerrando sesión...';
+      await fetch('/api/logout', { method: 'POST' });
+      fb.textContent = 'Sesión cerrada.';
+      fb.style.color = 'var(--muted)';
+      await checkStatus();
+    }
+
     checkStatus();
+    renderFavoritesBar();
+    renderRecentsBar();
   </script>
 </body>
 </html>

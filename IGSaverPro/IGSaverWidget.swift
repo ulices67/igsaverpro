@@ -8,7 +8,8 @@ struct IGSaverEntry: TimelineEntry {
 }
 
 struct IGSaverWidgetProvider: TimelineProvider {
-    let serverURL = "https://secondary-ranking-buffer-printers.trycloudflare.com"
+    let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
+    let defaultURL = "https://sector-laboratories-previews-graduated.trycloudflare.com"
 
     func placeholder(in context: Context) -> IGSaverEntry {
         IGSaverEntry(date: Date(), loggedIn: true, username: "Conectado")
@@ -19,23 +20,38 @@ struct IGSaverWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<IGSaverEntry>) -> Void) {
-        guard let url = URL(string: "\(serverURL)/api/status") else {
+        guard let registry = URL(string: cloudRegistryURL) else {
             let entry = IGSaverEntry(date: Date(), loggedIn: false, username: "Offline")
             completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(900))))
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            var logged = false
-            var uname = "Modo Público"
-            if let data = data,
-               let status = try? JSONDecoder().decode(SessionStatus.self, from: data) {
-                logged = status.logged_in
-                uname = status.username ?? (logged ? "Sesión Activa" : "Sin Sesión")
+        URLSession.shared.dataTask(with: registry) { regData, _, _ in
+            var targetURL = defaultURL
+            if let regData = regData,
+               let json = try? JSONSerialization.jsonObject(with: regData) as? [String: Any],
+               let remoteURL = json["server_url"] as? String, !remoteURL.isEmpty {
+                targetURL = remoteURL
             }
-            let entry = IGSaverEntry(date: Date(), loggedIn: logged, username: uname)
-            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
-            completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+
+            guard let statusURL = URL(string: "\(targetURL)/api/status") else {
+                let entry = IGSaverEntry(date: Date(), loggedIn: false, username: "Offline")
+                completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(900))))
+                return
+            }
+
+            URLSession.shared.dataTask(with: statusURL) { data, _, _ in
+                var logged = false
+                var uname = "Modo Público"
+                if let data = data,
+                   let status = try? JSONDecoder().decode(SessionStatus.self, from: data) {
+                    logged = status.logged_in
+                    uname = status.username ?? (logged ? "Sesión Activa" : "Sin Sesión")
+                }
+                let entry = IGSaverEntry(date: Date(), loggedIn: logged, username: uname)
+                let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
+                completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+            }.resume()
         }.resume()
     }
 }
@@ -48,33 +64,30 @@ struct IGSaverWidgetEntryView: View {
             HStack {
                 Image(systemName: "arrow.down.circle.fill")
                     .foregroundColor(.pink)
-                    .font(.system(size: 20))
                 Text("IG Saver Pro")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
-            }
-
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(entry.loggedIn ? Color.green : Color.orange)
-                    .frame(width: 7, height: 7)
-                Text(entry.loggedIn ? "@\(entry.username)" : entry.username)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.gray)
             }
 
             Spacer()
 
-            Text("📥 Tocar para buscar perfil o guardar link")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.pink)
-                .padding(8)
-                .frame(maxWidth: .infinity)
-                .background(Color.pink.opacity(0.2))
-                .cornerRadius(8)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(entry.loggedIn ? Color.green : Color.orange)
+                    .frame(width: 8, height: 8)
+                Text(entry.username)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(1)
+            }
+
+            Text("Toca para descargar historias o destacadas")
+                .font(.system(size: 10))
+                .foregroundColor(.gray)
+                .lineLimit(2)
         }
         .padding(14)
-        .background(Color(red: 0.07, green: 0.07, blue: 0.11))
+        .background(Color(red: 0.08, green: 0.08, blue: 0.12))
     }
 }
 
@@ -86,7 +99,7 @@ struct IGSaverWidget: Widget {
             IGSaverWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("IG Saver Pro Widget")
-        .description("Descarga historias anónimas, destacadas, publicaciones y fotos de perfil directo en Fotos.")
+        .description("Acceso rápido y estado de tu descargador de Instagram.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

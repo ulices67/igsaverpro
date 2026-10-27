@@ -1281,9 +1281,19 @@ struct LoginSheetView: View {
                     TextField("https://...", text: $api.serverURL)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
-                    Button("⚡ Restablecer al Servidor Activo") {
+                    Button("☁️ Sincronizar desde la Nube (GitHub)") {
+                        Task {
+                            let updated = await api.syncWithCloudRegistry()
+                            await api.checkStatus()
+                            statusFeedback = updated ? "✅ Conectado a la nube: \(api.serverURL)" : "Servidor al día: \(api.serverURL)"
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.cyan)
+
+                    Button("⚡ Restablecer al Servidor por Defecto") {
                         api.resetToDefaultServer()
-                        statusFeedback = "Servidor restablecido: \(api.serverURL)"
+                        statusFeedback = "Restablecido: \(api.serverURL)"
                     }
                     .font(.footnote)
                     .foregroundColor(.pink)
