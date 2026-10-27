@@ -15,20 +15,20 @@ class APIClient: ObservableObject {
     @Published var toastMessage: String?
     @Published var isCloudSyncing = false
 
-    // Registro 24/7 en la nube de GitHub que NUNCA cae
-    static let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
-    static let defaultURL = "https://alone-updated-techrepublic-quad.trycloudflare.com"
+    // Enlace permanente 24/7 en la red global de Cloudflare Workers (nunca cambia ni se apaga)
+    static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
+    static let defaultURL = "https://igsaver-cloud.societext.workers.dev"
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "ig_server_url")
-        // Si el valor guardado es un túnel trycloudflare antiguo que no coincide con el actual, forzar el activo
-        if let saved = saved, saved.contains(".trycloudflare.com") && saved != APIClient.defaultURL {
-            self.serverURL = APIClient.defaultURL
-            UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
+        // Migración automática: si tenía un túnel efímero antiguo, conectar al Cloudflare Worker permanente
+        if saved == nil || saved?.contains(".trycloudflare.com") == true {
+            self.serverURL = APIClient.cloudWorkerURL
+            UserDefaults.standard.set(APIClient.cloudWorkerURL, forKey: "ig_server_url")
         } else if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.serverURL = saved
         } else {
-            self.serverURL = APIClient.defaultURL
+            self.serverURL = APIClient.cloudWorkerURL
         }
 
         // Sincronización automática con la nube al arrancar
