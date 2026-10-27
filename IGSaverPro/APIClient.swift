@@ -18,6 +18,7 @@ class APIClient: ObservableObject {
     // Enlace permanente 24/7 en la red global de Cloudflare Workers (nunca cambia ni se apaga)
     static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
     static let defaultURL = "https://igsaver-cloud.societext.workers.dev"
+    static let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "ig_server_url")
@@ -43,7 +44,7 @@ class APIClient: ObservableObject {
     func syncWithCloudRegistry() async -> Bool {
         guard let url = URL(string: APIClient.cloudRegistryURL) else { return false }
         var req = URLRequest(url: url)
-        req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        req.cachePolicy = NSURLRequest.CachePolicy.reloadIgnoringLocalAndRemoteCacheData
         req.timeoutInterval = 7
 
         isCloudSyncing = true
@@ -54,7 +55,7 @@ class APIClient: ObservableObject {
             if let http = resp as? HTTPURLResponse, http.statusCode == 200,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let remoteURL = json["server_url"] as? String {
-                let cleanURL = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                let cleanURL = remoteURL.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
                 if !cleanURL.isEmpty && cleanURL != self.serverURL {
                     print("[CloudSync] Nuevo servidor detectado desde la nube: \(cleanURL)")
                     self.serverURL = cleanURL
