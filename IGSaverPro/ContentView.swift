@@ -187,9 +187,9 @@ struct ContentView: View {
             } label: {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(api.sessionStatus.logged_in ? Color.green : Color.orange)
+                        .fill(!api.isServiceAvailable ? Color.gray : api.sessionStatus.logged_in ? Color.green : Color.orange)
                         .frame(width: 8, height: 8)
-                    Text(api.sessionStatus.logged_in ? "@\(api.sessionStatus.username ?? "Conectado")" : "Iniciar Sesión")
+                    Text(!api.isServiceAvailable ? "Sin conexión" : api.sessionStatus.logged_in ? "@\(api.sessionStatus.username ?? "Conectado")" : "Iniciar Sesión")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                 }
@@ -1277,28 +1277,6 @@ struct LoginSheetView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Servidor Cloudflare Conectado") {
-                    TextField("https://...", text: $api.serverURL)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                    Button("☁️ Sincronizar desde la Nube (GitHub)") {
-                        Task {
-                            let updated = await api.syncWithCloudRegistry()
-                            await api.checkStatus()
-                            statusFeedback = updated ? "✅ Conectado a la nube: \(api.serverURL)" : "Servidor al día: \(api.serverURL)"
-                        }
-                    }
-                    .font(.footnote)
-                    .foregroundColor(.cyan)
-
-                    Button("⚡ Restablecer al Servidor por Defecto") {
-                        api.resetToDefaultServer()
-                        statusFeedback = "Restablecido: \(api.serverURL)"
-                    }
-                    .font(.footnote)
-                    .foregroundColor(.pink)
-                }
-
                 Section("Método de Inicio de Sesión") {
                     Picker("Modo", selection: $useCookieTab) {
                         Text("🔑 Usuario y Clave").tag(false)
@@ -1307,7 +1285,7 @@ struct LoginSheetView: View {
                     .pickerStyle(.segmented)
 
                     if useCookieTab {
-                        TextField("Pega tu cookie sessionid...", text: $sessionid)
+                        SecureField("Pega tu cookie sessionid...", text: $sessionid)
                             .textInputAutocapitalization(.never)
                             .disableAutocorrection(true)
                     } else {

@@ -8,8 +8,6 @@ struct IGSaverEntry: TimelineEntry {
 }
 
 struct IGSaverWidgetProvider: TimelineProvider {
-    let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
-    let defaultURL = "https://igsaver-cloud.societext.workers.dev"
 
     func placeholder(in context: Context) -> IGSaverEntry {
         IGSaverEntry(date: Date(), loggedIn: true, username: "Conectado")
@@ -20,40 +18,11 @@ struct IGSaverWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<IGSaverEntry>) -> Void) {
-        guard let registry = URL(string: cloudRegistryURL) else {
-            let entry = IGSaverEntry(date: Date(), loggedIn: false, username: "Offline")
-            completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(900))))
-            return
-        }
-
-        URLSession.shared.dataTask(with: registry) { regData, _, _ in
-            var targetURL = defaultURL
-            if let regData = regData,
-               let json = try? JSONSerialization.jsonObject(with: regData) as? [String: Any],
-               let remoteURL = json["server_url"] as? String, !remoteURL.isEmpty {
-                targetURL = remoteURL
-            }
-
-            guard let statusURL = URL(string: "\(targetURL)/api/status") else {
-                let entry = IGSaverEntry(date: Date(), loggedIn: false, username: "Offline")
-                completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(900))))
-                return
-            }
-
-            URLSession.shared.dataTask(with: statusURL) { data, _, _ in
-                var logged = false
-                var uname = "Modo Público"
-                if let data = data,
-                   let status = try? JSONDecoder().decode(SessionStatus.self, from: data) {
-                    logged = status.logged_in
-                    uname = status.username ?? (logged ? "Sesión Activa" : "Sin Sesión")
-                }
-                let entry = IGSaverEntry(date: Date(), loggedIn: logged, username: uname)
-                let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
-                completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
-            }.resume()
-        }.resume()
+        // This source is not an extension target. Never expose another installation's session.
+        let entry = IGSaverEntry(date: Date(), loggedIn: false, username: "Abrir IG Saver Pro")
+        completion(Timeline(entries: [entry], policy: .never))
     }
+
 }
 
 struct IGSaverWidgetEntryView: View {

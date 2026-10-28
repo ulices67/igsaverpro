@@ -12,6 +12,7 @@
 		A10000032345678900000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032345678900000001 /* APIClient.swift */; };
 		A10000042345678900000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042345678900000001 /* Models.swift */; };
 		A10000072345678900000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000072345678900000001 /* Assets.xcassets */; };
+		AB0000012345678900000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AB0000022345678900000001 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +24,7 @@
 		A20000052345678900000001 /* IGSaverWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IGSaverWidget.swift; sourceTree = "<group>"; };
 		A20000062345678900000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000072345678900000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AB0000022345678900000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +55,7 @@
 				A20000042345678900000001 /* Models.swift */,
 				A20000052345678900000001 /* IGSaverWidget.swift */,
 				A20000062345678900000001 /* Info.plist */,
+				AB0000022345678900000001 /* PrivacyInfo.xcprivacy */,
 				A20000072345678900000001 /* Assets.xcassets */,
 			);
 			path = IGSaverPro;
@@ -121,6 +124,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000072345678900000001 /* Assets.xcassets in Resources */,
+				AB0000012345678900000001 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,7 +189,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = IGSaverPro/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -193,7 +197,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.0;
+				MARKETING_VERSION = 3.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -207,7 +211,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = IGSaverPro/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -215,7 +219,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.0;
+				MARKETING_VERSION = 3.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.igsaverpro.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -1,88 +1,101 @@
 import Foundation
 import UIKit
 import Photos
+import Security
+import Combine
 
 @MainActor
 class APIClient: ObservableObject {
-    @Published var serverURL: String {
-        didSet {
-            UserDefaults.standard.set(serverURL, forKey: "ig_server_url")
-        }
-    }
+    private let serverURL = APIClient.cloudWorkerURL
+    private var installationToken: String?
+    @Published private(set) var isServiceAvailable = false
     @Published var sessionStatus = SessionStatus(logged_in: false, user_id: nil, username: nil, session_file_exists: false)
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var toastMessage: String?
-    @Published var isCloudSyncing = false
-
-    // Enlace permanente 24/7 en la red global de Cloudflare Workers (nunca cambia ni se apaga)
     static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
-    static let defaultURL = "https://igsaver-cloud.societext.workers.dev"
-    static let cloudRegistryURL = "https://raw.githubusercontent.com/ulices67/igsaverpro/main/endpoint.json"
 
     init() {
-        let saved = UserDefaults.standard.string(forKey: "ig_server_url")
-        // Migración automática: si tenía un túnel efímero antiguo, conectar al Cloudflare Worker permanente
-        if saved == nil || saved?.contains(".trycloudflare.com") == true {
-            self.serverURL = APIClient.cloudWorkerURL
-            UserDefaults.standard.set(APIClient.cloudWorkerURL, forKey: "ig_server_url")
-        } else if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            self.serverURL = saved
-        } else {
-            self.serverURL = APIClient.cloudWorkerURL
-        }
-
-        // Sincronización automática con la nube al arrancar
-        Task {
-            await syncWithCloudRegistry()
-            await checkStatus()
-        }
-    }
-
-    /// Consulta el registro permanente en GitHub para obtener siempre el servidor activo
-    @discardableResult
-    func syncWithCloudRegistry() async -> Bool {
-        guard let url = URL(string: APIClient.cloudRegistryURL) else { return false }
-        var req = URLRequest(url: url)
-        req.cachePolicy = NSURLRequest.CachePolicy.reloadIgnoringLocalAndRemoteCacheData
-        req.timeoutInterval = 7
-
-        isCloudSyncing = true
-        defer { isCloudSyncing = false }
-
+        // Old saved tunnels must never override the production endpoint.
+        UserDefaults.standard.removeObject(forKey: "ig_server_url")
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            if let http = resp as? HTTPURLResponse, http.statusCode == 200,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let remoteURL = json["server_url"] as? String {
-                let cleanURL = remoteURL.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-                if !cleanURL.isEmpty && cleanURL != self.serverURL {
-                    print("[CloudSync] Nuevo servidor detectado desde la nube: \(cleanURL)")
-                    self.serverURL = cleanURL
-                    UserDefaults.standard.set(cleanURL, forKey: "ig_server_url")
-                    return true
-                }
-            }
+            installationToken = try Self.loadInstallationToken()
         } catch {
-            print("[CloudSync] Aviso: no se pudo consultar el registro en la nube (\(error.localizedDescription))")
+            errorMessage = "No se pudo preparar la conexión segura. Desbloquea el iPhone y vuelve a abrir la app."
         }
-        return false
     }
 
-    func resetToDefaultServer() {
-        self.serverURL = APIClient.defaultURL
-        UserDefaults.standard.set(APIClient.defaultURL, forKey: "ig_server_url")
-        Task {
-            await syncWithCloudRegistry()
-            await checkStatus()
+    private static func loadInstallationToken() throws -> String {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.igsaverpro.connection",
+            kSecAttrAccount as String: "installation"
+        ]
+        var read = query
+        read[kSecReturnData as String] = true
+        read[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        let result = SecItemCopyMatching(read as CFDictionary, &item)
+        if result == errSecSuccess, let data = item as? Data,
+           let token = String(data: data, encoding: .utf8) {
+            return token
+        }
+        guard result == errSecItemNotFound else { throw URLError(.userAuthenticationRequired) }
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        let token = bytes.map { String(format: "%02x", $0) }.joined()
+        var add = query
+        add[kSecValueData as String] = Data(token.utf8)
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        guard SecItemAdd(add as CFDictionary, nil) == errSecSuccess else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        return token
+    }
+
+    private func requestData(for request: URLRequest) async throws -> (Data, URLResponse) {
+        guard let token = installationToken else {
+            throw NSError(domain: "IGSaver", code: 401, userInfo: [NSLocalizedDescriptionKey:
+                "No se pudo acceder a la conexión segura. Vuelve a abrir la app."])
+        }
+        var authenticated = request
+        authenticated.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        authenticated.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        // A sleeping cloud container needs time to start.
+        authenticated.timeoutInterval = 90
+        do {
+            let result = try await URLSession.shared.data(for: authenticated)
+            guard let response = result.1 as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            if !(200..<300).contains(response.statusCode) {
+                if response.statusCode >= 500 { isServiceAvailable = false }
+                let detail = (try? JSONDecoder().decode(LoginResponse.self, from: result.0))?.detail
+                let message = response.statusCode >= 500
+                    ? "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos."
+                    : (detail ?? "No se pudo completar la operación.")
+                throw NSError(domain: "IGSaver", code: response.statusCode,
+                              userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            isServiceAvailable = true
+            return result
+        } catch let error as URLError {
+            isServiceAvailable = false
+            let message = error.code == .notConnectedToInternet
+                ? "No hay conexión a internet. Revisa el Wi-Fi o tus datos móviles."
+                : "No se pudo conectar con el servicio. Inténtalo de nuevo en unos momentos."
+            throw NSError(domain: "IGSaver", code: error.errorCode,
+                          userInfo: [NSLocalizedDescriptionKey: message])
         }
     }
 
     func proxyURL(for rawURL: String, filename: String = "media.jpg") -> URL? {
-        guard var comps = URLComponents(string: "\(serverURL)/api/proxy-file") else { return nil }
+        guard installationToken != nil,
+              var comps = URLComponents(string: "\(serverURL)/api/proxy-file") else { return nil }
         comps.queryItems = [
             URLQueryItem(name: "file_url", value: rawURL),
-            URLQueryItem(name: "filename", value: filename)
+            URLQueryItem(name: "filename", value: filename),
+            URLQueryItem(name: "access_token", value: installationToken)
         ]
         return comps.url
     }
@@ -90,20 +103,11 @@ class APIClient: ObservableObject {
     func checkStatus() async {
         guard let url = URL(string: "\(serverURL)/api/status") else { return }
         do {
-            var req = URLRequest(url: url)
-            req.timeoutInterval = 8
-            let (data, _) = try await URLSession.shared.data(for: req)
-            let decoded = try JSONDecoder().decode(SessionStatus.self, from: data)
-            self.sessionStatus = decoded
+            let (data, _) = try await requestData(for: URLRequest(url: url))
+            sessionStatus = try JSONDecoder().decode(SessionStatus.self, from: data)
         } catch {
-            print("[CheckStatus] Falló conexión con \(serverURL). Intentando auto-recuperar desde la nube...")
-            let updated = await syncWithCloudRegistry()
-            if updated, let retryURL = URL(string: "\(serverURL)/api/status") {
-                if let (data2, _) = try? await URLSession.shared.data(from: retryURL),
-                   let decoded2 = try? JSONDecoder().decode(SessionStatus.self, from: data2) {
-                    self.sessionStatus = decoded2
-                }
-            }
+            isServiceAvailable = false
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -116,7 +120,7 @@ class APIClient: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await requestData(for: req)
         let decoded = try JSONDecoder().decode(LoginResponse.self, from: data)
         if let httpResp = response as? HTTPURLResponse, httpResp.statusCode != 200 {
             throw NSError(domain: "IGLogin", code: httpResp.statusCode, userInfo: [
@@ -131,19 +135,16 @@ class APIClient: ObservableObject {
         guard let url = URL(string: "\(serverURL)/api/logout") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        _ = try? await URLSession.shared.data(for: req)
-        await checkStatus()
+        do {
+            _ = try await requestData(for: req)
+            await checkStatus()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func searchAccounts(query: String) async throws -> [SearchUser] {
-        do {
-            return try await executeSearch(query: query)
-        } catch {
-            if await syncWithCloudRegistry() {
-                return try await executeSearch(query: query)
-            }
-            throw error
-        }
+        try await executeSearch(query: query)
     }
 
     private func executeSearch(query: String) async throws -> [SearchUser] {
@@ -153,7 +154,7 @@ class APIClient: ObservableObject {
 
         var req = URLRequest(url: url)
         req.timeoutInterval = 15
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await requestData(for: req)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             let errObj = try? JSONDecoder().decode(LoginResponse.self, from: data)
             throw NSError(domain: "IGSearch", code: http.statusCode, userInfo: [
@@ -165,14 +166,7 @@ class APIClient: ObservableObject {
     }
 
     func resolve(input: String) async throws -> ResolveResponse {
-        do {
-            return try await executeResolve(input: input)
-        } catch {
-            if await syncWithCloudRegistry() {
-                return try await executeResolve(input: input)
-            }
-            throw error
-        }
+        try await executeResolve(input: input)
     }
 
     private func executeResolve(input: String) async throws -> ResolveResponse {
@@ -184,7 +178,7 @@ class APIClient: ObservableObject {
 
         var req = URLRequest(url: url)
         req.timeoutInterval = 25
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await requestData(for: req)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             let errObj = try? JSONDecoder().decode(LoginResponse.self, from: data)
             throw NSError(domain: "IGResolve", code: http.statusCode, userInfo: [
@@ -195,14 +189,7 @@ class APIClient: ObservableObject {
     }
 
     func fetchHighlight(pk: String) async throws -> HighlightDetailResponse {
-        do {
-            return try await executeFetchHighlight(pk: pk)
-        } catch {
-            if await syncWithCloudRegistry() {
-                return try await executeFetchHighlight(pk: pk)
-            }
-            throw error
-        }
+        try await executeFetchHighlight(pk: pk)
     }
 
     private func executeFetchHighlight(pk: String) async throws -> HighlightDetailResponse {
@@ -211,7 +198,7 @@ class APIClient: ObservableObject {
         }
         var req = URLRequest(url: url)
         req.timeoutInterval = 20
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, _) = try await requestData(for: req)
         return try JSONDecoder().decode(HighlightDetailResponse.self, from: data)
     }
 
@@ -226,7 +213,7 @@ class APIClient: ObservableObject {
         guard let url = comps.url else { throw URLError(.badURL) }
         var req = URLRequest(url: url)
         req.timeoutInterval = 20
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, _) = try await requestData(for: req)
         return try JSONDecoder().decode(MorePostsResponse.self, from: data)
     }
 
@@ -240,11 +227,18 @@ class APIClient: ObservableObject {
                 return
             }
 
-            let (localTempURL, _) = try await URLSession.shared.download(from: url)
+            let (localTempURL, response) = try await URLSession.shared.download(from: url)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let contentType = http.value(forHTTPHeaderField: "Content-Type"),
+                  contentType.hasPrefix("image/") || contentType.hasPrefix("video/") else {
+                try? FileManager.default.removeItem(at: localTempURL)
+                throw NSError(domain: "IGSaver", code: 502, userInfo: [NSLocalizedDescriptionKey:
+                    "No se pudo descargar el archivo. Inténtalo de nuevo."])
+            }
             let ext = item.media_type == "video" ? "mp4" : "jpg"
             let targetURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString + "." + ext)
-            try? FileManager.default.removeItem(at: targetURL)
+            defer { try? FileManager.default.removeItem(at: targetURL) }
             try FileManager.default.moveItem(at: localTempURL, to: targetURL)
 
             try await PHPhotoLibrary.shared().performChanges {
@@ -257,7 +251,13 @@ class APIClient: ObservableObject {
             try? FileManager.default.removeItem(at: targetURL)
             self.toastMessage = "✅ Guardado en Fotos con éxito"
         } catch {
-            self.errorMessage = "Error al guardar en Fotos: \(error.localizedDescription)"
+            if let networkError = error as? URLError {
+                self.errorMessage = networkError.code == .notConnectedToInternet
+                    ? "No hay conexión a internet. Revisa el Wi-Fi o tus datos móviles."
+                    : "No se pudo descargar el archivo. Inténtalo de nuevo en unos momentos."
+            } else {
+                self.errorMessage = "Error al guardar en Fotos: \(error.localizedDescription)"
+            }
         }
     }
 }
