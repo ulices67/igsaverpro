@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import WebKit
 
 struct ContentView: View {
     @StateObject private var api = APIClient()
@@ -124,6 +125,8 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingLoginSheet) {
                 LoginSheetView(api: api)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(item: $selectedPost) { post in
                 PostDetailSheetView(post: post, username: resolvedProfile?.user?.username ?? "user", api: api)
@@ -1261,86 +1264,452 @@ struct PostDetailSheetView: View {
     }
 }
 
-// MARK: - Hoja de Login
+// MARK: - Instagram Web View Representable
+struct InstagramWebView: UIViewRepresentable {
+    let url: URL
+    @Binding var isLoading: Bool
+    var onSessionCaptured: ((String) -> Void)?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = WKWebsiteDataStore.default()
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+        webView.allowsBackForwardNavigationGestures = true
+
+        // Observar almacenamiento de cookies de WebKit
+        configuration.websiteDataStore.httpCookieStore.add(context.coordinator)
+
+        let request = URLRequest(url: url)
+        webView.load(request)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.configuration.websiteDataStore.httpCookieStore.remove(coordinator)
+    }
+
+    static func clearWebCookies(completion: (() -> Void)? = nil) {
+        let dataStore = WKWebsiteDataStore.default()
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        dataStore.fetchDataRecords(ofTypes: types) { records in
+            let igRecords = records.filter { record in
+                let name = record.displayName.lowercased()
+                return name.contains("instagram") || name.contains("facebook") || name.contains("meta")
+            }
+            if !igRecords.isEmpty {
+                dataStore.removeData(ofTypes: types, for: igRecords) {
+                    DispatchQueue.main.async { completion?() }
+                }
+            } else {
+                dataStore.removeData(ofTypes: types, modifiedSince: Date.distantPast) {
+                    DispatchQueue.main.async { completion?() }
+                }
+            }
+        }
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKHTTPCookieStoreObserver {
+        var parent: InstagramWebView
+        var captured = false
+
+        init(_ parent: InstagramWebView) {
+            self.parent = parent
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                self.parent.isLoading = true
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                self.parent.isLoading = false
+            }
+            checkCookies(in: webView.configuration.websiteDataStore.httpCookieStore)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async {
+                self.parent.isLoading = false
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async {
+                self.parent.isLoading = false
+            }
+        }
+
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if navigationAction.targetFrame == nil {
+                webView.load(navigationAction.request)
+            }
+            return nil
+        }
+
+        func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
+            checkCookies(in: cookieStore)
+        }
+
+        private func checkCookies(in cookieStore: WKHTTPCookieStore) {
+            guard !captured else { return }
+            cookieStore.getAllCookies { [weak self] cookies in
+                guard let self = self, !self.captured else { return }
+                for cookie in cookies {
+                    if cookie.name.lowercased() == "sessionid" {
+                        let val = cookie.value.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !val.isEmpty && val != "\"\"" {
+                            self.captured = true
+                            DispatchQueue.main.async {
+                                self.parent.onSessionCaptured?(val)
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Métodos de Inicio de Sesión
+enum LoginMethod: Int, CaseIterable, Identifiable {
+    case officialWeb = 0
+    case credentials = 1
+    case sessionidCookie = 2
+
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .officialWeb: return "🌐 Web Oficial"
+        case .credentials: return "🔑 Usuario/Clave"
+        case .sessionidCookie: return "🍪 Cookie"
+        }
+    }
+}
+
+// MARK: - Hoja de Login con Web Oficial de Instagram
 struct LoginSheetView: View {
     @ObservedObject var api: APIClient
     @Environment(\.dismiss) private var dismiss
 
-    @State private var useCookieTab = false
+    @State private var selectedMethod: LoginMethod = .officialWeb
     @State private var username = ""
     @State private var password = ""
     @State private var code2FA = ""
     @State private var sessionid = ""
     @State private var statusFeedback = ""
     @State private var isSubmitting = false
+    @State private var webIsLoading = true
+    @State private var webViewID = UUID()
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Método de Inicio de Sesión") {
-                    Picker("Modo", selection: $useCookieTab) {
-                        Text("🔑 Usuario y Clave").tag(false)
-                        Text("🍪 Cookie sessionid").tag(true)
-                    }
-                    .pickerStyle(.segmented)
+            VStack(spacing: 0) {
+                // Header si ya está conectado
+                if api.sessionStatus.logged_in {
+                    activeSessionHeader
+                }
 
-                    if useCookieTab {
-                        SecureField("Pega tu cookie sessionid...", text: $sessionid)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                    } else {
-                        TextField("Usuario de Instagram", text: $username)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                        SecureField("Contraseña", text: $password)
-                        TextField("Código 2FA (Opcional)", text: $code2FA)
-                            .keyboardType(.numberPad)
-                    }
-
-                    Button {
-                        Task { await submitLogin() }
-                    } label: {
-                        HStack {
-                            if isSubmitting { ProgressView() }
-                            Text("Conectar Cuenta de Instagram")
-                                .fontWeight(.bold)
-                        }
-                    }
-
-                    if api.sessionStatus.logged_in {
-                        Button("Cerrar Sesión Actual", role: .destructive) {
-                            Task {
-                                await api.logout()
-                                statusFeedback = "Sesión cerrada."
-                            }
-                        }
-                    }
-
-                    if !statusFeedback.isEmpty {
-                        Text(statusFeedback)
-                            .font(.footnote)
-                            .foregroundColor(.pink)
+                // Selector de método
+                Picker("Método de Inicio", selection: $selectedMethod) {
+                    ForEach(LoginMethod.allCases) { method in
+                        Text(method.title).tag(method)
                     }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+
+                // Contenido según el modo
+                Group {
+                    switch selectedMethod {
+                    case .officialWeb:
+                        officialWebLoginView
+                    case .credentials:
+                        credentialsLoginView
+                    case .sessionidCookie:
+                        cookieLoginView
+                    }
+                }
+
+                if !statusFeedback.isEmpty {
+                    Text(statusFeedback)
+                        .font(.footnote)
+                        .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                }
             }
+            .background(Color(red: 0.05, green: 0.05, blue: 0.07).ignoresSafeArea())
             .navigationTitle("Sesión de Instagram")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar") { dismiss() }
+                        .foregroundColor(.white)
                 }
             }
         }
     }
 
-    private func submitLogin() async {
+    private var activeSessionHeader: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundColor(.green)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Sesión activa")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                Text("@\(api.sessionStatus.username ?? "Conectado")")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
+            Spacer()
+            Button(role: .destructive) {
+                Task {
+                    await api.logout()
+                    InstagramWebView.clearWebCookies {
+                        webViewID = UUID()
+                    }
+                    statusFeedback = "Sesión cerrada correctamente."
+                }
+            } label: {
+                Text("Cerrar Sesión")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.pink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.pink.opacity(0.15))
+                    .cornerRadius(8)
+            }
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    private var officialWebLoginView: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill")
+                    .font(.caption2)
+                    .foregroundColor(.green)
+                Text("instagram.com oficial · Detección automática al entrar")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                Spacer()
+                Button {
+                    webIsLoading = true
+                    webViewID = UUID()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(6)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                Button {
+                    InstagramWebView.clearWebCookies {
+                        webIsLoading = true
+                        webViewID = UUID()
+                    }
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.pink)
+                        .padding(6)
+                        .background(Color.pink.opacity(0.15))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 2)
+
+            ZStack {
+                InstagramWebView(
+                    url: URL(string: "https://www.instagram.com/accounts/login/")!,
+                    isLoading: $webIsLoading,
+                    onSessionCaptured: { capturedSessionId in
+                        handleCapturedSession(capturedSessionId)
+                    }
+                )
+                .id(webViewID)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+                .padding(.horizontal, 12)
+
+                if webIsLoading {
+                    VStack(spacing: 8) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Cargando Instagram...")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(16)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                }
+
+                if isSubmitting {
+                    ZStack {
+                        Color.black.opacity(0.75).ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.3)
+                                .tint(.white)
+                            Text("¡Sesión de Instagram Detectada!")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("Conectando tu cuenta con IG Saver Pro...")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(red: 0.12, green: 0.12, blue: 0.16))
+                        )
+                        .shadow(radius: 20)
+                    }
+                }
+            }
+        }
+    }
+
+    private var credentialsLoginView: some View {
+        Form {
+            Section {
+                TextField("Usuario de Instagram", text: $username)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                SecureField("Contraseña", text: $password)
+                TextField("Código 2FA (Opcional)", text: $code2FA)
+                    .keyboardType(.numberPad)
+            } header: {
+                Text("Usuario y Contraseña")
+            } footer: {
+                Text("Si tienes verificación en 2 pasos o Instagram solicita comprobación de seguridad, usa la pestaña 🌐 Web Oficial.")
+            }
+
+            Section {
+                Button {
+                    Task { await submitDirectLogin() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if isSubmitting { ProgressView().padding(.trailing, 4) }
+                        Text("Iniciar Sesión")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                }
+                .disabled(username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isSubmitting)
+            }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    private var cookieLoginView: some View {
+        Form {
+            Section {
+                SecureField("Pega tu cookie sessionid...", text: $sessionid)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+            } header: {
+                Text("Cookie sessionid")
+            } footer: {
+                Text("Pega la cookie 'sessionid' obtenida desde la versión web de Instagram.")
+            }
+
+            Section {
+                Button {
+                    Task { await submitCookieLogin() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if isSubmitting { ProgressView().padding(.trailing, 4) }
+                        Text("Conectar con Cookie")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                }
+                .disabled(sessionid.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting)
+            }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    private func handleCapturedSession(_ sid: String) {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        statusFeedback = "Conectando sesión capturada..."
+        Task {
+            let payload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: sid)
+            do {
+                let msg = try await api.login(payload: payload)
+                api.toastMessage = "✅ \(msg)"
+                dismiss()
+            } catch {
+                isSubmitting = false
+                statusFeedback = "❌ Error al conectar sesión: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func submitDirectLogin() async {
         isSubmitting = true
         defer { isSubmitting = false }
-        let payload = useCookieTab
-            ? LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: sessionid)
-            : LoginPayload(username: username, password: password, verification_code: code2FA.isEmpty ? nil : code2FA, sessionid: nil)
+        let payload = LoginPayload(
+            username: username.trimmingCharacters(in: .whitespaces),
+            password: password,
+            verification_code: code2FA.trimmingCharacters(in: .whitespaces).isEmpty ? nil : code2FA.trimmingCharacters(in: .whitespaces),
+            sessionid: nil
+        )
         do {
             let msg = try await api.login(payload: payload)
-            statusFeedback = "✅ \(msg)"
+            api.toastMessage = "✅ \(msg)"
+            dismiss()
+        } catch {
+            statusFeedback = "❌ \(error.localizedDescription)"
+        }
+    }
+
+    private func submitCookieLogin() async {
+        isSubmitting = true
+        defer { isSubmitting = false }
+        let payload = LoginPayload(
+            username: nil,
+            password: nil,
+            verification_code: nil,
+            sessionid: sessionid.trimmingCharacters(in: .whitespaces)
+        )
+        do {
+            let msg = try await api.login(payload: payload)
+            api.toastMessage = "✅ \(msg)"
             dismiss()
         } catch {
             statusFeedback = "❌ \(error.localizedDescription)"
