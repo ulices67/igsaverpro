@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 import AVKit
 import WebKit
 
@@ -13,15 +14,11 @@ struct ContentView: View {
     @State private var nextCursor: String = ""
     @State private var directItems: [StoryItem] = []
 
-    // Modal de Destacadas (Fila / Cuadrícula / Selección Múltiple)
-    @State private var showingHighlightSheet = false
-    @State private var currentHighlightDetail: HighlightDetailResponse?
+    // Modal de Destacadas (Item-bound atómico para evitar pantallas en negro)
+    @State private var activeHighlightDetail: HighlightDetailResponse?
 
-    // Visor Anónimo de Historias del perfil
-    @State private var showingStoryViewer = false
-    @State private var storyQueue: [StoryItem] = []
-    @State private var storyIndex = 0
-    @State private var storyHeaderTitle = ""
+    // Visor Anónimo de Historias (Item-bound atómico para evitar pantallas en negro)
+    @State private var activeStorySession: StoryViewerSession?
 
     // Hoja de Login y Detalle de Publicación
     @State private var showingLoginSheet = false
@@ -131,25 +128,29 @@ struct ContentView: View {
             .sheet(item: $selectedPost) { post in
                 PostDetailSheetView(post: post, username: resolvedProfile?.user?.username ?? "user", api: api)
             }
-            .sheet(isPresented: $showingHighlightSheet) {
-                if let hl = currentHighlightDetail {
-                    HighlightExplorerSheetView(
-                        highlight: hl,
-                        api: api
-                    )
-                }
+            .sheet(item: $activeHighlightDetail) { hl in
+                HighlightExplorerSheetView(
+                    highlight: hl,
+                    api: api
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
-            .fullScreenCover(isPresented: $showingStoryViewer) {
+            .fullScreenCover(item: $activeStorySession) { session in
                 AnonymousStoryPlayerView(
-                    items: storyQueue,
-                    currentIndex: $storyIndex,
-                    title: storyHeaderTitle,
+                    session: session,
                     api: api,
-                    onClose: { showingStoryViewer = false }
+                    onClose: { activeStorySession = nil }
                 )
             }
             .alert("Aviso", isPresented: Binding(
-                get: { api.errorMessage != nil || api.toastMessage != nil },
+                get: {
+                    activeStorySession == nil &&
+                    activeHighlightDetail == nil &&
+                    selectedPost == nil &&
+                    !showingLoginSheet &&
+                    (api.errorMessage != nil || api.toastMessage != nil)
+                },
                 set: { if !$0 { api.errorMessage = nil; api.toastMessage = nil } }
             )) {
                 Button("OK", role: .cancel) {}
@@ -473,10 +474,11 @@ struct ContentView: View {
                 )
                 .onTapGesture {
                     if hasStories {
-                        storyQueue = stories
-                        storyIndex = 0
-                        storyHeaderTitle = "@\(user.username) · Historias"
-                        showingStoryViewer = true
+                        activeStorySession = StoryViewerSession(
+                            items: stories,
+                            initialIndex: 0,
+                            title: "@\(user.username) · Historias"
+                        )
                     }
                 }
 
@@ -535,10 +537,11 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 Button {
                     if hasStories {
-                        storyQueue = stories
-                        storyIndex = 0
-                        storyHeaderTitle = "@\(user.username) · Historias"
-                        showingStoryViewer = true
+                        activeStorySession = StoryViewerSession(
+                            items: stories,
+                            initialIndex: 0,
+                            title: "@\(user.username) · Historias"
+                        )
                     } else {
                         api.toastMessage = "Este usuario no tiene historias activas hoy."
                     }
@@ -586,11 +589,11 @@ struct ContentView: View {
                                 Task { await openHighlightExplorer(hl) }
                             } label: {
                                 VStack(spacing: 5) {
-                                    AsyncImage(url: api.proxyURL(for: hl.cover_url, filename: "hl_\(hl.pk).jpg")) { img in
-                                        img.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Color.gray.opacity(0.3)
-                                    }
+                                    SmartThumbnailView(
+                                        rawURL: hl.cover_url,
+                                        filename: "hl_\(hl.pk).jpg",
+                                        api: api
+                                    )
                                     .frame(width: 60, height: 60)
                                     .clipShape(Circle())
                                     .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 2))
@@ -672,15 +675,32 @@ struct ContentView: View {
     // MARK: - Direct Media Section
     private var directMediaListSection: some View {
         VStack(spacing: 14) {
-            ForEach(directItems) { item in
+            ForEach(Array(directItems.enumerated()), id: \.element.id) { index, item in
                 VStack(spacing: 10) {
-                    AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
-                        img.resizable().scaledToFit()
-                    } placeholder: {
-                        ProgressView().frame(height: 200)
+                    ZStack {
+                        SmartThumbnailView(
+                            rawURL: item.thumbnail ?? item.url,
+                            filename: "thumb_" + item.filename,
+                            api: api,
+                            contentMode: .fit
+                        )
+                        .frame(maxHeight: 360)
+                        .cornerRadius(12)
+
+                        if item.media_type == "video" {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 48))
+                                .foregroundColor(.white.opacity(0.9))
+                                .shadow(radius: 8)
+                        }
                     }
-                    .frame(maxHeight: 360)
-                    .cornerRadius(12)
+                    .onTapGesture {
+                        activeStorySession = StoryViewerSession(
+                            items: directItems,
+                            initialIndex: index,
+                            title: "Vista Previa"
+                        )
+                    }
 
                     Button {
                         Task { await api.saveMediaToPhotos(item: item) }
@@ -741,7 +761,16 @@ struct ContentView: View {
                 }
             } else {
                 resolvedProfile = nil
-                directItems = res.items ?? []
+                let items = res.items ?? []
+                directItems = items
+                if (res.type == "story" || res.type == "user_stories" || res.type == "highlight"), !items.isEmpty {
+                    let uname = res.username ?? "instagram"
+                    activeStorySession = StoryViewerSession(
+                        items: items,
+                        initialIndex: 0,
+                        title: "@\(uname) · Historias"
+                    )
+                }
             }
         } catch {
             api.errorMessage = error.localizedDescription
@@ -757,8 +786,7 @@ struct ContentView: View {
                 api.toastMessage = "Esta destacada no tiene historias activas."
                 return
             }
-            currentHighlightDetail = detail
-            showingHighlightSheet = true
+            activeHighlightDetail = detail
         } catch {
             api.errorMessage = error.localizedDescription
         }
@@ -776,6 +804,83 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Miniatura Inteligente con Caché Local (CDN Directo + Respaldo Proxy)
+struct SmartThumbnailView: View {
+    let rawURL: String
+    let filename: String
+    @ObservedObject var api: APIClient
+    var contentMode: ContentMode = .fill
+
+    @State private var uiImage: UIImage?
+    @State private var failed = false
+
+    var body: some View {
+        ZStack {
+            if let img = uiImage {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: contentMode)
+            } else if failed {
+                Color.white.opacity(0.08)
+                    .overlay(
+                        Image(systemName: "photo")
+                            .foregroundColor(.gray)
+                    )
+            } else {
+                Color.white.opacity(0.08)
+                    .overlay(ProgressView().tint(.white.opacity(0.7)))
+            }
+        }
+        .task(id: rawURL) {
+            guard uiImage == nil else { return }
+            failed = false
+            if let localURL = try? await api.downloadMediaToCache(rawURL: rawURL, filename: filename, expectVideo: false),
+               let decoded = UIImage(contentsOfFile: localURL.path) {
+                uiImage = decoded
+            } else if !Task.isCancelled {
+                failed = true
+            }
+        }
+    }
+}
+
+// MARK: - Banner Flotante de Avisos dentro de Modales
+struct ModalFeedbackBanner: View {
+    @ObservedObject var api: APIClient
+
+    var body: some View {
+        if let msg = api.toastMessage ?? api.errorMessage {
+            let isError = (api.toastMessage == nil && api.errorMessage != nil)
+            Text(msg)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(isError ? Color.red.opacity(0.9) : Color.black.opacity(0.85))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+                .onTapGesture {
+                    api.toastMessage = nil
+                    api.errorMessage = nil
+                }
+                .task(id: msg) {
+                    try? await Task.sleep(nanoseconds: 2_600_000_000)
+                    if !Task.isCancelled {
+                        api.toastMessage = nil
+                        api.errorMessage = nil
+                    }
+                }
+        }
+    }
+}
+
 // MARK: - Explorador de Destacadas (Ver en Fila / Modo Historias / Selección Múltiple)
 struct HighlightExplorerSheetView: View {
     let highlight: HighlightDetailResponse
@@ -784,156 +889,178 @@ struct HighlightExplorerSheetView: View {
 
     @State private var selectedIndices: Set<Int> = []
     @State private var isDownloadingBatch = false
-    @State private var showingInnerViewer = false
-    @State private var innerViewerIndex = 0
+    @State private var innerStorySession: StoryViewerSession?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                HStack(spacing: 10) {
-                    Button {
-                        innerViewerIndex = 0
-                        showingInnerViewer = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "play.circle.fill")
-                            Text("Ver una por una")
-                        }
-                        .font(.system(size: 13, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.pink.opacity(0.2))
-                        .foregroundColor(.pink)
-                        .cornerRadius(10)
-                    }
-
-                    Button {
-                        if selectedIndices.count == highlight.items.count {
-                            selectedIndices.removeAll()
-                        } else {
-                            selectedIndices = Set(highlight.items.indices)
-                        }
-                    } label: {
-                        Text(selectedIndices.count == highlight.items.count ? "Deseleccionar" : "Seleccionar todas")
-                            .font(.system(size: 13, weight: .semibold))
+            ZStack {
+                VStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Button {
+                            guard !highlight.items.isEmpty else { return }
+                            innerStorySession = StoryViewerSession(
+                                items: highlight.items,
+                                initialIndex: 0,
+                                title: "✨ \(highlight.title)"
+                            )
+                        } label: {
+                            HStack {
+                                Image(systemName: "play.circle.fill")
+                                Text("Ver una por una")
+                            }
+                            .font(.system(size: 13, weight: .bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.pink.opacity(0.2))
+                            .foregroundColor(.pink)
+                            .cornerRadius(10)
+                        }
+
+                        Button {
+                            if selectedIndices.count == highlight.items.count {
+                                selectedIndices.removeAll()
+                            } else {
+                                selectedIndices = Set(highlight.items.indices)
+                            }
+                        } label: {
+                            Text(selectedIndices.count == highlight.items.count ? "Deseleccionar" : "Seleccionar todas")
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.1))
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+
+                    HStack {
+                        Text("\(selectedIndices.count) de \(highlight.items.count) seleccionadas")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button {
+                            Task { await downloadSelectedItems() }
+                        } label: {
+                            HStack {
+                                if isDownloadingBatch { ProgressView().tint(.white) }
+                                Text(selectedIndices.isEmpty ? "Guardar selección" : "⬇️ Guardar (\(selectedIndices.count))")
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(selectedIndices.isEmpty ? Color.gray.opacity(0.3) : Color.pink)
                             .foregroundColor(.white)
                             .cornerRadius(10)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
-                HStack {
-                    Text("\(selectedIndices.count) de \(highlight.items.count) seleccionadas")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Button {
-                        Task { await downloadSelectedItems() }
-                    } label: {
-                        HStack {
-                            if isDownloadingBatch { ProgressView().tint(.white) }
-                            Text(selectedIndices.isEmpty ? "Guardar selección" : "⬇️ Guardar (\(selectedIndices.count))")
-                                .font(.system(size: 13, weight: .bold))
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(selectedIndices.isEmpty ? Color.gray.opacity(0.3) : Color.pink)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                        .disabled(selectedIndices.isEmpty || isDownloadingBatch)
                     }
-                    .disabled(selectedIndices.isEmpty || isDownloadingBatch)
-                }
-                .padding(.horizontal, 16)
+                    .padding(.horizontal, 16)
 
-                // Cuadrícula 2 columnas de historias
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                        ForEach(highlight.items.indices, id: \.self) { idx in
-                            let item = highlight.items[idx]
-                            let isSelected = selectedIndices.contains(idx)
+                    // Cuadrícula 2 columnas de historias
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                            ForEach(highlight.items.indices, id: \.self) { idx in
+                                let item = highlight.items[idx]
+                                let isSelected = selectedIndices.contains(idx)
 
-                            VStack(spacing: 0) {
-                                ZStack(alignment: .topTrailing) {
-                                    AsyncImage(url: api.proxyURL(for: item.thumbnail ?? item.url, filename: item.filename)) { img in
-                                        img.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Color.gray.opacity(0.2)
-                                    }
-                                    .frame(height: 190)
-                                    .clipped()
-                                    .onTapGesture {
-                                        innerViewerIndex = idx
-                                        showingInnerViewer = true
-                                    }
-
-                                    // Casilla de verificación
-                                    Button {
-                                        if isSelected {
-                                            selectedIndices.remove(idx)
-                                        } else {
-                                            selectedIndices.insert(idx)
+                                VStack(spacing: 0) {
+                                    ZStack(alignment: .topTrailing) {
+                                        SmartThumbnailView(
+                                            rawURL: item.thumbnail ?? item.url,
+                                            filename: "thumb_" + item.filename,
+                                            api: api,
+                                            contentMode: .fill
+                                        )
+                                        .frame(height: 190)
+                                        .clipped()
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            innerStorySession = StoryViewerSession(
+                                                items: highlight.items,
+                                                initialIndex: idx,
+                                                title: "✨ \(highlight.title)"
+                                            )
                                         }
-                                    } label: {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(isSelected ? Color.pink : Color.black.opacity(0.6))
-                                                .frame(width: 26, height: 26)
+
+                                        // Casilla de verificación
+                                        Button {
                                             if isSelected {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 14, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                selectedIndices.remove(idx)
+                                            } else {
+                                                selectedIndices.insert(idx)
                                             }
+                                        } label: {
+                                            ZStack {
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(isSelected ? Color.pink : Color.black.opacity(0.6))
+                                                    .frame(width: 26, height: 26)
+                                                if isSelected {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 14, weight: .bold))
+                                                        .foregroundColor(.white)
+                                                }
+                                            }
+                                            .padding(8)
                                         }
-                                        .padding(8)
                                     }
-                                }
 
-                                HStack {
-                                    Text(item.media_type == "video" ? "▶ Video" : "📷 Foto")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(.gray)
-                                    Spacer()
-                                    Button {
-                                        Task { await api.saveMediaToPhotos(item: item) }
-                                    } label: {
-                                        Image(systemName: "square.and.arrow.down")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.pink)
+                                    HStack {
+                                        Text(item.media_type == "video" ? "▶ Video" : "📷 Foto")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(.gray)
+                                        Spacer()
+                                        Button {
+                                            Task { await api.saveMediaToPhotos(item: item) }
+                                        } label: {
+                                            Image(systemName: "square.and.arrow.down")
+                                                .font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(.pink)
+                                        }
                                     }
+                                    .padding(8)
+                                    .background(Color(red: 0.1, green: 0.1, blue: 0.14))
                                 }
-                                .padding(8)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.14))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(isSelected ? Color.pink : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                                )
                             }
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isSelected ? Color.pink : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                            )
                         }
+                        .padding(16)
                     }
-                    .padding(16)
+                }
+                .background(Color(red: 0.05, green: 0.05, blue: 0.08))
+
+                // Visor integrado sin presentar un segundo UIViewController modal encima del sheet
+                if let session = innerStorySession {
+                    AnonymousStoryPlayerView(
+                        session: session,
+                        api: api,
+                        onClose: { innerStorySession = nil }
+                    )
+                    .transition(.opacity)
+                    .zIndex(10)
+                }
+
+                if innerStorySession == nil {
+                    VStack {
+                        Spacer()
+                        ModalFeedbackBanner(api: api)
+                            .padding(.bottom, 16)
+                    }
+                    .zIndex(15)
                 }
             }
-            .background(Color(red: 0.05, green: 0.05, blue: 0.08))
             .navigationTitle("✨ \(highlight.title)")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(innerStorySession == nil ? .visible : .hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar") { dismiss() }
                 }
-            }
-            .fullScreenCover(isPresented: $showingInnerViewer) {
-                AnonymousStoryPlayerView(
-                    items: highlight.items,
-                    currentIndex: $innerViewerIndex,
-                    title: "✨ \(highlight.title)",
-                    api: api,
-                    onClose: { showingInnerViewer = false }
-                )
             }
         }
     }
@@ -949,86 +1076,256 @@ struct HighlightExplorerSheetView: View {
     }
 }
 
-// MARK: - Reproductor de Video Robusto sin Pantalla Negra
-struct StoryVideoPlayerView: View {
-    let videoURL: URL
-    @State private var player: AVPlayer?
-    @State private var isMuted = true
-    @State private var isBuffering = true
+// MARK: - Capa Ligera Nativa AVPlayerLayer (Sin AVPlayerViewController ni Pantalla Negra)
+final class PlayerLayerUIView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
 
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            if let p = player {
-                VideoPlayer(player: p)
-                    .onAppear {
-                        p.play()
-                    }
-                    .onDisappear {
-                        p.pause()
-                    }
-            }
+struct StoryAVPlayerLayerView: UIViewRepresentable {
+    let player: AVPlayer
 
-            if isBuffering {
-                ProgressView()
-                    .tint(.white)
-                    .scaleEffect(1.2)
-            }
+    func makeUIView(context: Context) -> PlayerLayerUIView {
+        let view = PlayerLayerUIView()
+        view.backgroundColor = .clear
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        return view
+    }
 
-            Button {
-                isMuted.toggle()
-                player?.isMuted = isMuted
-            } label: {
-                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Color.black.opacity(0.65))
-                    .clipShape(Circle())
-            }
-            .padding(16)
-        }
-        .onAppear {
-            let p = AVPlayer(url: videoURL)
-            p.isMuted = isMuted
-            p.actionAtItemEnd = .none
-            NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: p.currentItem,
-                queue: .main
-            ) { _ in
-                p.seek(to: .zero)
-                p.play()
-            }
-            Task {
-                try? await Task.sleep(nanoseconds: 600_000_000)
-                isBuffering = false
-            }
-            p.play()
-            self.player = p
-        }
-        .onDisappear {
-            player?.pause()
-            player = nil
+    func updateUIView(_ uiView: PlayerLayerUIView, context: Context) {
+        if uiView.playerLayer.player !== player {
+            uiView.playerLayer.player = player
         }
     }
 }
 
-// MARK: - Visor Anónimo de Historias (Una por una a pantalla completa)
-struct AnonymousStoryPlayerView: View {
-    let items: [StoryItem]
-    @Binding var currentIndex: Int
-    let title: String
+// MARK: - Renderizador Inteligente de Foto/Video para Historias y Destacadas
+struct SmartStoryMediaView: View {
+    let item: StoryItem
     @ObservedObject var api: APIClient
-    let onClose: () -> Void
+    let onTapPrev: () -> Void
+    let onTapNext: () -> Void
+
+    @State private var loadedImage: UIImage?
+    @State private var player: AVPlayer?
+    @State private var isLoading = true
+    @State private var loadError: String?
+    @State private var isMuted = false
+    @State private var reloadID = UUID()
+    @State private var endObserver: NSObjectProtocol?
 
     var body: some View {
         ZStack {
+            // Vista previa o foto cargada
+            if let img = loadedImage, (item.media_type != "video" || player == nil) {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(item.media_type == "video" ? 0.65 : 1.0)
+            }
+
+            // Reproductor nativo desde archivo .mp4 local en caché
+            if item.media_type == "video", let p = player {
+                StoryAVPlayerLayerView(player: p)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            // Zonas táctiles izquierda (anterior) y derecha (siguiente)
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    Color.clear
+                        .frame(width: geo.size.width * 0.35)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onTapPrev() }
+                    Color.clear
+                        .frame(width: geo.size.width * 0.65)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onTapNext() }
+                }
+            }
+
+            // Indicador de carga real
+            if isLoading {
+                VStack(spacing: 10) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.3)
+                    Text("Cargando historia...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .padding(18)
+                .background(Color.black.opacity(0.65))
+                .cornerRadius(14)
+            }
+
+            // Mensaje de error con botón Reintentar (encima de las zonas táctiles)
+            if let err = loadError, !isLoading {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(.orange)
+                    Text(err)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    Button {
+                        reloadID = UUID()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Reintentar")
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.75))
+                .cornerRadius(16)
+            }
+
+            // Botón de sonido encima de las zonas táctiles para que siempre responda
+            if item.media_type == "video", player != nil {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button {
+                            isMuted.toggle()
+                            player?.isMuted = isMuted
+                        } label: {
+                            Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(11)
+                                .background(Color.black.opacity(0.65))
+                                .clipShape(Circle())
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+        }
+        .task(id: "\(item.id)_\(reloadID.uuidString)") {
+            cleanupPlayer()
+            loadedImage = nil
+            loadError = nil
+            isLoading = true
+
+            if item.media_type == "video" {
+                if let thumb = item.thumbnail, !thumb.isEmpty, thumb != item.url {
+                    if let thumbFile = try? await api.downloadMediaToCache(rawURL: thumb, filename: "thumb_" + item.filename, expectVideo: false),
+                       let thumbImg = UIImage(contentsOfFile: thumbFile.path),
+                       !Task.isCancelled {
+                        self.loadedImage = thumbImg
+                    }
+                }
+
+                do {
+                    let localVideoURL = try await api.downloadMediaToCache(
+                        rawURL: item.url,
+                        filename: item.filename,
+                        expectVideo: true
+                    )
+                    guard !Task.isCancelled else { return }
+
+                    try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+                    try? AVAudioSession.sharedInstance().setActive(true)
+
+                    let playerItem = AVPlayerItem(url: localVideoURL)
+                    let avPlayer = AVPlayer(playerItem: playerItem)
+                    avPlayer.isMuted = isMuted
+                    avPlayer.actionAtItemEnd = .none
+
+                    let observer = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime,
+                        object: playerItem,
+                        queue: .main
+                    ) { _ in
+                        avPlayer.seek(to: .zero)
+                        avPlayer.play()
+                    }
+                    self.endObserver = observer
+                    self.player = avPlayer
+                    self.isLoading = false
+                    avPlayer.play()
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    self.isLoading = false
+                    self.loadError = "No se pudo cargar este video. Toca Reintentar."
+                }
+            } else {
+                do {
+                    let localImgURL = try await api.downloadMediaToCache(
+                        rawURL: item.url,
+                        filename: item.filename,
+                        expectVideo: false
+                    )
+                    guard !Task.isCancelled else { return }
+                    if let uiImg = UIImage(contentsOfFile: localImgURL.path) {
+                        self.loadedImage = uiImg
+                        self.isLoading = false
+                    } else {
+                        self.isLoading = false
+                        self.loadError = "No se pudo decodificar la imagen."
+                    }
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    self.isLoading = false
+                    self.loadError = "No se pudo cargar esta historia. Toca Reintentar."
+                }
+            }
+        }
+        .onDisappear {
+            cleanupPlayer()
+        }
+    }
+
+    private func cleanupPlayer() {
+        player?.pause()
+        player = nil
+        if let obs = endObserver {
+            NotificationCenter.default.removeObserver(obs)
+            endObserver = nil
+        }
+    }
+}
+
+// MARK: - Visor Anónimo de Historias (Una por una a pantalla completa, siempre cerrable)
+struct AnonymousStoryPlayerView: View {
+    let session: StoryViewerSession
+    @ObservedObject var api: APIClient
+    let onClose: () -> Void
+
+    @State private var currentIndex: Int
+    @State private var isSavingCurrent = false
+
+    init(session: StoryViewerSession, api: APIClient, onClose: @escaping () -> Void) {
+        self.session = session
+        self._api = ObservedObject(wrappedValue: api)
+        self.onClose = onClose
+        let validIndex = session.items.indices.contains(session.initialIndex) ? session.initialIndex : 0
+        _currentIndex = State(initialValue: validIndex)
+    }
+
+    var body: some View {
+        let items = session.items
+        let hasCurrent = items.indices.contains(currentIndex)
+
+        ZStack {
             Color.black.ignoresSafeArea()
 
-            if items.indices.contains(currentIndex) {
-                let current = items[currentIndex]
-                VStack(spacing: 12) {
-                    // Barras de progreso
+            VStack(spacing: 12) {
+                // Barras de progreso (siempre visibles arriba)
+                if !items.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(items.indices, id: \.self) { idx in
                             Rectangle()
@@ -1038,82 +1335,69 @@ struct AnonymousStoryPlayerView: View {
                         }
                     }
                     .padding(.horizontal, 12)
+                    .padding(.top, 6)
+                }
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(title) (\(currentIndex + 1)/\(items.count))")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("🕵️‍♂️ Viendo en Modo 100% Anónimo \(current.taken_at ?? "")")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.green)
-                        }
-                        Spacer()
-                        Button(action: onClose) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
+                // Encabezado con botón Cerrar SIEMPRE presente (imposible quedar atrapado)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(hasCurrent ? "\(session.title) (\(currentIndex + 1)/\(items.count))" : session.title)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Text("🕵️‍♂️ Viendo en Modo 100% Anónimo \(hasCurrent ? (items[currentIndex].taken_at ?? "") : "")")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.green)
                     }
-                    .padding(.horizontal, 16)
-
                     Spacer()
+                    Button(action: onClose) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                }
+                .padding(.horizontal, 16)
 
-                    // Contenido Multimedia sin pantalla negra
-                    ZStack {
-                        if current.media_type == "video", let vURL = api.proxyURL(for: current.url, filename: current.filename) {
-                            StoryVideoPlayerView(videoURL: vURL)
-                                .id(current.id)
-                        } else {
-                            AsyncImage(url: api.proxyURL(for: current.url, filename: current.filename)) { phase in
-                                switch phase {
-                                case .empty:
-                                    ProgressView().tint(.white)
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                case .failure:
-                                    AsyncImage(url: URL(string: current.url)) { directImg in
-                                        directImg.resizable().scaledToFit()
-                                    } placeholder: {
-                                        Image(systemName: "photo")
-                                            .font(.system(size: 40))
-                                            .foregroundColor(.gray)
-                                    }
-                                @unknown default:
-                                    EmptyView()
-                                }
+                Spacer(minLength: 4)
+
+                if hasCurrent {
+                    let current = items[currentIndex]
+
+                    SmartStoryMediaView(
+                        item: current,
+                        api: api,
+                        onTapPrev: {
+                            if currentIndex > 0 {
+                                currentIndex -= 1
                             }
-                            .id(current.id)
+                        },
+                        onTapNext: {
+                            if currentIndex < items.count - 1 {
+                                currentIndex += 1
+                            } else {
+                                onClose()
+                            }
                         }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    if currentIndex > 0 { currentIndex -= 1 }
-                                }
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    if currentIndex < items.count - 1 {
-                                        currentIndex += 1
-                                    } else {
-                                        onClose()
-                                    }
-                                }
-                        }
-                    }
-
-                    Spacer()
+                    Spacer(minLength: 4)
 
                     Button {
-                        Task { await api.saveMediaToPhotos(item: current) }
+                        guard !isSavingCurrent else { return }
+                        isSavingCurrent = true
+                        Task {
+                            await api.saveMediaToPhotos(item: current)
+                            isSavingCurrent = false
+                        }
                     } label: {
                         HStack {
-                            Image(systemName: "square.and.arrow.down.fill")
-                            Text("Guardar en Fotos")
+                            if isSavingCurrent {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "square.and.arrow.down.fill")
+                            }
+                            Text(isSavingCurrent ? "Guardando..." : "Guardar en Fotos")
                         }
                         .font(.system(size: 16, weight: .bold))
                         .frame(maxWidth: .infinity)
@@ -1122,10 +1406,42 @@ struct AnonymousStoryPlayerView: View {
                         .foregroundColor(.white)
                         .cornerRadius(14)
                         .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
                     }
+                } else {
+                    VStack(spacing: 14) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.gray)
+                        Text("No hay historias disponibles para mostrar.")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white.opacity(0.85))
+                        Button("Cerrar", action: onClose)
+                            .font(.system(size: 15, weight: .bold))
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(Color.pink)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    Spacer()
                 }
             }
+
+            VStack {
+                ModalFeedbackBanner(api: api)
+                    .padding(.top, 58)
+                Spacer()
+            }
         }
+        .gesture(
+            DragGesture(minimumDistance: 40, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.height > 90 && abs(value.translation.height) > abs(value.translation.width) {
+                        onClose()
+                    }
+                }
+        )
     }
 }
 

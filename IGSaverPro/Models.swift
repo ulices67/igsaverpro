@@ -100,13 +100,22 @@ struct ResolveResponse: Codable {
     let items: [StoryItem]?
 }
 
-struct HighlightDetailResponse: Codable {
+struct HighlightDetailResponse: Codable, Identifiable {
     let status: String
     let pk: String
     let title: String
     let username: String
     let count: Int
     let items: [StoryItem]
+
+    var id: String { "\(pk)_\(count)" }
+}
+
+struct StoryViewerSession: Identifiable {
+    let id = UUID()
+    let items: [StoryItem]
+    let initialIndex: Int
+    let title: String
 }
 
 struct MorePostsResponse: Codable {

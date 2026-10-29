@@ -3,6 +3,7 @@ import UIKit
 import Photos
 import Security
 import Combine
+import CryptoKit
 
 @MainActor
 class APIClient: ObservableObject {
@@ -193,11 +194,13 @@ class APIClient: ObservableObject {
     }
 
     private func executeFetchHighlight(pk: String) async throws -> HighlightDetailResponse {
-        guard let url = URL(string: "\(serverURL)/api/highlight/\(pk)") else {
+        let cleanPK = pk.filter(\.isNumber)
+        guard !cleanPK.isEmpty,
+              let url = URL(string: "\(serverURL)/api/highlight/\(cleanPK)") else {
             throw URLError(.badURL)
         }
         var req = URLRequest(url: url)
-        req.timeoutInterval = 20
+        req.timeoutInterval = 25
         let (data, _) = try await requestData(for: req)
         return try JSONDecoder().decode(HighlightDetailResponse.self, from: data)
     }
@@ -217,9 +220,111 @@ class APIClient: ObservableObject {
         return try JSONDecoder().decode(MorePostsResponse.self, from: data)
     }
 
+    /// Descarga un recurso multimedia (foto o video de historia/destacada) a caché local con extensión real (.mp4/.jpg).
+    /// Intenta primero descarga directa desde CDN de Instagram (sigue redirecciones 302 rápido) y usa el proxy de respaldo.
+    func downloadMediaToCache(rawURL: String, filename: String = "media", expectVideo: Bool) async throws -> URL {
+        let clean = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, clean != "None" else {
+            throw URLError(.badURL)
+        }
+
+        let cacheDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ig_story_cache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+
+        let hash = SHA256.hash(data: Data(clean.utf8)).map { String(format: "%02x", $0) }.joined()
+        let ext = expectVideo ? "mp4" : "jpg"
+        let cachedURL = cacheDir.appendingPathComponent("\(hash).\(ext)")
+
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: cachedURL.path),
+           let size = attrs[.size] as? Int, size > 512 {
+            return cachedURL
+        }
+
+        if let directURL = URL(string: clean),
+           let saved = await fetchAndStoreMedia(from: directURL, cachedURL: cachedURL, cacheDir: cacheDir, ext: ext, expectVideo: expectVideo, useAuth: false) {
+            return saved
+        }
+
+        if let proxiedURL = proxyURL(for: clean, filename: filename),
+           let saved = await fetchAndStoreMedia(from: proxiedURL, cachedURL: cachedURL, cacheDir: cacheDir, ext: ext, expectVideo: expectVideo, useAuth: true) {
+            return saved
+        }
+
+        throw NSError(domain: "IGSaverMedia", code: 502, userInfo: [
+            NSLocalizedDescriptionKey: "No se pudo cargar el archivo multimedia. Inténtalo de nuevo."
+        ])
+    }
+
+    private func fetchAndStoreMedia(
+        from remoteURL: URL,
+        cachedURL: URL,
+        cacheDir: URL,
+        ext: String,
+        expectVideo: Bool,
+        useAuth: Bool
+    ) async -> URL? {
+        var req = URLRequest(url: remoteURL)
+        req.timeoutInterval = 35
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+            forHTTPHeaderField: "User-Agent"
+        )
+        if useAuth, let token = installationToken {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let tempURL: URL
+        let resp: URLResponse
+        do {
+            (tempURL, resp) = try await URLSession.shared.download(for: req)
+        } catch {
+            return nil
+        }
+        guard let http = resp as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode) else {
+            try? FileManager.default.removeItem(at: tempURL)
+            return nil
+        }
+
+        let ct = (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+        if ct.hasPrefix("application/json") || ct.hasPrefix("text/") {
+            try? FileManager.default.removeItem(at: tempURL)
+            return nil
+        }
+
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: tempURL.path),
+              let size = attrs[.size] as? Int, size > 512 else {
+            try? FileManager.default.removeItem(at: tempURL)
+            return nil
+        }
+
+        let stagedURL = cacheDir.appendingPathComponent(UUID().uuidString + "." + ext)
+        do {
+            try FileManager.default.moveItem(at: tempURL, to: stagedURL)
+            if !expectVideo && UIImage(contentsOfFile: stagedURL.path) == nil {
+                try? FileManager.default.removeItem(at: stagedURL)
+                return nil
+            }
+            if FileManager.default.fileExists(atPath: cachedURL.path) {
+                try? FileManager.default.removeItem(at: stagedURL)
+                return cachedURL
+            }
+            try FileManager.default.moveItem(at: stagedURL, to: cachedURL)
+            return cachedURL
+        } catch {
+            try? FileManager.default.removeItem(at: tempURL)
+            try? FileManager.default.removeItem(at: stagedURL)
+            if FileManager.default.fileExists(atPath: cachedURL.path) {
+                return cachedURL
+            }
+            return nil
+        }
+    }
+
     /// Descarga una foto o video desde Instagram y lo guarda directamente en el carrete de FOTOS de iOS
     func saveMediaToPhotos(item: StoryItem) async {
-        guard let url = proxyURL(for: item.url, filename: item.filename) else { return }
         do {
             let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
             guard status == .authorized || status == .limited else {
@@ -227,22 +332,20 @@ class APIClient: ObservableObject {
                 return
             }
 
-            let (localTempURL, response) = try await URLSession.shared.download(from: url)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-                  let contentType = http.value(forHTTPHeaderField: "Content-Type"),
-                  contentType.hasPrefix("image/") || contentType.hasPrefix("video/") else {
-                try? FileManager.default.removeItem(at: localTempURL)
-                throw NSError(domain: "IGSaver", code: 502, userInfo: [NSLocalizedDescriptionKey:
-                    "No se pudo descargar el archivo. Inténtalo de nuevo."])
-            }
-            let ext = item.media_type == "video" ? "mp4" : "jpg"
+            let isVideo = item.media_type == "video"
+            let cachedFile = try await downloadMediaToCache(
+                rawURL: item.url,
+                filename: item.filename,
+                expectVideo: isVideo
+            )
+            let ext = isVideo ? "mp4" : "jpg"
             let targetURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString + "." + ext)
             defer { try? FileManager.default.removeItem(at: targetURL) }
-            try FileManager.default.moveItem(at: localTempURL, to: targetURL)
+            try FileManager.default.copyItem(at: cachedFile, to: targetURL)
 
             try await PHPhotoLibrary.shared().performChanges {
-                if item.media_type == "video" {
+                if isVideo {
                     PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: targetURL)
                 } else {
                     PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: targetURL)
