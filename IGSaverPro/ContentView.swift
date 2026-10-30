@@ -118,7 +118,7 @@ struct ContentView: View {
             }
             .preferredColorScheme(.dark)
             .task {
-                await api.checkStatus()
+                await api.checkStatus(silent: true)
             }
             .sheet(isPresented: $showingLoginSheet) {
                 LoginSheetView(api: api)
@@ -1729,48 +1729,63 @@ struct LoginSheetView: View {
     @State private var isSubmitting = false
     @State private var webIsLoading = true
     @State private var webViewID = UUID()
+    @State private var showingChangeAccount = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Header si ya está conectado
-                if api.sessionStatus.logged_in {
-                    activeSessionHeader
-                }
-
-                // Selector de método
-                Picker("Método de Inicio", selection: $selectedMethod) {
-                    ForEach(LoginMethod.allCases) { method in
-                        Text(method.title).tag(method)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-
-                // Contenido según el modo
-                Group {
-                    switch selectedMethod {
-                    case .officialWeb:
-                        officialWebLoginView
-                    case .credentials:
-                        credentialsLoginView
-                    case .sessionidCookie:
-                        cookieLoginView
-                    }
-                }
-
-                if !statusFeedback.isEmpty {
-                    Text(statusFeedback)
-                        .font(.footnote)
-                        .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
+                if api.sessionStatus.logged_in && !showingChangeAccount {
+                    activeSessionFullView
+                } else {
+                    if showingChangeAccount && api.sessionStatus.logged_in {
+                        HStack {
+                            Button {
+                                showingChangeAccount = false
+                            } label: {
+                                Label("Volver a cuenta guardada", systemImage: "chevron.left")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                            Spacer()
+                        }
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
+                        .padding(.top, 10)
+                    }
+
+                    // Selector de método
+                    Picker("Método de Inicio", selection: $selectedMethod) {
+                        ForEach(LoginMethod.allCases) { method in
+                            Text(method.title).tag(method)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+
+                    // Contenido según el modo
+                    Group {
+                        switch selectedMethod {
+                        case .officialWeb:
+                            officialWebLoginView
+                        case .credentials:
+                            credentialsLoginView
+                        case .sessionidCookie:
+                            cookieLoginView
+                        }
+                    }
+
+                    if !statusFeedback.isEmpty {
+                        Text(statusFeedback)
+                            .font(.footnote)
+                            .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                    }
                 }
             }
             .background(Color(red: 0.05, green: 0.05, blue: 0.07).ignoresSafeArea())
-            .navigationTitle("Sesión de Instagram")
+            .navigationTitle(api.sessionStatus.logged_in && !showingChangeAccount ? "Cuenta Conectada" : "Sesión de Instagram")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1778,6 +1793,101 @@ struct LoginSheetView: View {
                         .foregroundColor(.white)
                 }
             }
+        }
+    }
+
+    private var activeSessionFullView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.12))
+                    .frame(width: 96, height: 96)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.green)
+            }
+
+            VStack(spacing: 8) {
+                Text("Sesión Guardada y Activa")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                Text("@\(api.sessionStatus.username ?? "Conectado")")
+                    .font(.title2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.green)
+                Text("Tu cuenta de Instagram está guardada de forma segura en este dispositivo. Permanecerás conectado automáticamente cada vez que abras la app sin necesidad de volver a iniciar sesión.")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            HStack(spacing: 8) {
+                Circle().fill(Color.green).frame(width: 8, height: 8)
+                Text("Listo para buscar y descargar")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.85))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(20)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Continuar a la App")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.purple, Color.pink, Color.orange],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                }
+
+                Button {
+                    showingChangeAccount = true
+                } label: {
+                    Text("Cambiar de Cuenta")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white.opacity(0.85))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(12)
+                }
+
+                Button(role: .destructive) {
+                    Task {
+                        await api.logout()
+                        InstagramWebView.clearWebCookies {
+                            webViewID = UUID()
+                        }
+                        statusFeedback = "Sesión cerrada correctamente."
+                    }
+                } label: {
+                    Text("Cerrar Sesión")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.pink)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
     }
 
@@ -1988,6 +2098,7 @@ struct LoginSheetView: View {
             do {
                 let msg = try await api.login(payload: payload)
                 api.toastMessage = "✅ \(msg)"
+                showingChangeAccount = false
                 dismiss()
             } catch {
                 isSubmitting = false
@@ -2008,6 +2119,7 @@ struct LoginSheetView: View {
         do {
             let msg = try await api.login(payload: payload)
             api.toastMessage = "✅ \(msg)"
+            showingChangeAccount = false
             dismiss()
         } catch {
             statusFeedback = "❌ \(error.localizedDescription)"
@@ -2026,6 +2138,7 @@ struct LoginSheetView: View {
         do {
             let msg = try await api.login(payload: payload)
             api.toastMessage = "✅ \(msg)"
+            showingChangeAccount = false
             dismiss()
         } catch {
             statusFeedback = "❌ \(error.localizedDescription)"

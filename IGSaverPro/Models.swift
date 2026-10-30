@@ -17,6 +17,7 @@ struct LoginPayload: Codable {
 struct LoginResponse: Codable {
     let status: String?
     let username: String?
+    let sessionid: String?
     let message: String?
     let detail: String?
 }

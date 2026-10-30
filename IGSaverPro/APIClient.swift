@@ -16,6 +16,10 @@ class APIClient: ObservableObject {
     @Published var toastMessage: String?
     static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
 
+    private static let sessionKeyService = "com.igsaverpro.auth"
+    private static let sessionKeyAccount = "instagram_sessionid"
+    private static let sessionStatusDefaultsKey = "ig_cached_session_status"
+
     init() {
         // Old saved tunnels must never override the production endpoint.
         UserDefaults.standard.removeObject(forKey: "ig_server_url")
@@ -24,6 +28,71 @@ class APIClient: ObservableObject {
         } catch {
             errorMessage = "No se pudo preparar la conexión segura. Desbloquea el iPhone y vuelve a abrir la app."
         }
+
+        // Cargar inmediatamente la sesión guardada localmente para inicio instantáneo (0s espera)
+        if let cached = Self.loadCachedSessionStatus(), cached.logged_in {
+            self.sessionStatus = cached
+            self.isServiceAvailable = true
+        }
+    }
+
+    static func saveSessionId(_ sessionid: String) {
+        let trimmed = sessionid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: sessionKeyService,
+            kSecAttrAccount as String: sessionKeyAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+        var attributes = query
+        attributes[kSecValueData as String] = data
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(attributes as CFDictionary, nil)
+    }
+
+    static func loadSavedSessionId() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: sessionKeyService,
+            kSecAttrAccount as String: sessionKeyAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecSuccess, let data = item as? Data, let sid = String(data: data, encoding: .utf8) {
+            let trimmed = sid.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return nil
+    }
+
+    static func deleteSavedSessionId() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: sessionKeyService,
+            kSecAttrAccount as String: sessionKeyAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    static func saveCachedSessionStatus(_ status: SessionStatus) {
+        if let data = try? JSONEncoder().encode(status) {
+            UserDefaults.standard.set(data, forKey: sessionStatusDefaultsKey)
+        }
+    }
+
+    static func loadCachedSessionStatus() -> SessionStatus? {
+        guard let data = UserDefaults.standard.data(forKey: sessionStatusDefaultsKey),
+              let status = try? JSONDecoder().decode(SessionStatus.self, from: data) else {
+            return nil
+        }
+        return status
+    }
+
+    static func clearCachedSessionStatus() {
+        UserDefaults.standard.removeObject(forKey: sessionStatusDefaultsKey)
     }
 
     private static func loadInstallationToken() throws -> String {
@@ -101,14 +170,61 @@ class APIClient: ObservableObject {
         return comps.url
     }
 
-    func checkStatus() async {
+    func checkStatus(silent: Bool = false) async {
         guard let url = URL(string: "\(serverURL)/api/status") else { return }
         do {
             let (data, _) = try await requestData(for: URLRequest(url: url))
-            sessionStatus = try JSONDecoder().decode(SessionStatus.self, from: data)
+            let status = try JSONDecoder().decode(SessionStatus.self, from: data)
+            if status.logged_in {
+                self.sessionStatus = status
+                Self.saveCachedSessionStatus(status)
+                self.isServiceAvailable = true
+            } else if let savedSid = Self.loadSavedSessionId(), !savedSid.isEmpty {
+                // El contenedor en la nube se reinició o despertó en frío.
+                // Restauramos la sesión en segundo plano con la cookie guardada en el Keychain.
+                do {
+                    let restorePayload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: savedSid)
+                    _ = try await self.loginSilent(payload: restorePayload)
+                } catch {
+                    Self.deleteSavedSessionId()
+                    Self.clearCachedSessionStatus()
+                    self.sessionStatus = status
+                }
+            } else {
+                self.sessionStatus = status
+                Self.clearCachedSessionStatus()
+            }
         } catch {
-            isServiceAvailable = false
-            errorMessage = error.localizedDescription
+            if !silent {
+                isServiceAvailable = false
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func loginSilent(payload: LoginPayload) async throws {
+        guard let url = URL(string: "\(serverURL)/api/login") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await requestData(for: req)
+        guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        let decoded = try JSONDecoder().decode(LoginResponse.self, from: data)
+        let restored = SessionStatus(
+            logged_in: true,
+            user_id: nil,
+            username: decoded.username ?? sessionStatus.username,
+            session_file_exists: true
+        )
+        self.sessionStatus = restored
+        Self.saveCachedSessionStatus(restored)
+        self.isServiceAvailable = true
+        if let sid = payload.sessionid ?? decoded.sessionid, !sid.isEmpty {
+            Self.saveSessionId(sid)
         }
     }
 
@@ -128,19 +244,35 @@ class APIClient: ObservableObject {
                 NSLocalizedDescriptionKey: decoded.detail ?? "Error al iniciar sesión"
             ])
         }
-        await checkStatus()
+
+        if let sid = payload.sessionid ?? decoded.sessionid, !sid.isEmpty {
+            Self.saveSessionId(sid)
+        }
+        let updated = SessionStatus(
+            logged_in: true,
+            user_id: nil,
+            username: decoded.username ?? sessionStatus.username,
+            session_file_exists: true
+        )
+        self.sessionStatus = updated
+        Self.saveCachedSessionStatus(updated)
+        self.isServiceAvailable = true
+
+        await checkStatus(silent: true)
         return decoded.message ?? "Sesión iniciada"
     }
 
     func logout() async {
+        Self.deleteSavedSessionId()
+        Self.clearCachedSessionStatus()
+        sessionStatus = SessionStatus(logged_in: false, user_id: nil, username: nil, session_file_exists: false)
         guard let url = URL(string: "\(serverURL)/api/logout") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         do {
             _ = try await requestData(for: req)
-            await checkStatus()
         } catch {
-            errorMessage = error.localizedDescription
+            // Local state already erased
         }
     }
 
