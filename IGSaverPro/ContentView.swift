@@ -208,14 +208,6 @@ struct ContentView: View {
     // MARK: - Search & Input Card
     private var searchAndInputCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("🕵️‍♂️ Modo 100% Anónimo — No apareces en vistos")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.green)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.green.opacity(0.14))
-                .clipShape(Capsule())
-
             HStack {
                 TextField("Busca nombre, @usuario o pega link...", text: $searchText)
                     .textInputAutocapitalization(.never)
@@ -299,9 +291,7 @@ struct ContentView: View {
                 HStack(spacing: 14) {
                     ForEach(favoriteAccounts) { fav in
                         Button {
-                            searchText = "@\(fav.username)"
-                            searchResults = []
-                            Task { await handleResolve() }
+                            selectSavedAccount(fav)
                         } label: {
                             VStack(spacing: 4) {
                                 AsyncImage(url: api.proxyURL(for: fav.profile_pic, filename: "\(fav.username)_fav.jpg")) { img in
@@ -353,9 +343,7 @@ struct ContentView: View {
                 HStack(spacing: 10) {
                     ForEach(recentSearches) { item in
                         Button {
-                            searchText = "@\(item.username)"
-                            searchResults = []
-                            Task { await handleResolve() }
+                            selectSavedAccount(item)
                         } label: {
                             HStack(spacing: 7) {
                                 AsyncImage(url: api.proxyURL(for: item.profile_pic, filename: "\(item.username)_rec.jpg")) { img in
@@ -389,9 +377,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             ForEach(searchResults) { u in
                 Button {
-                    searchText = "@\(u.username)"
-                    searchResults = []
-                    Task { await handleResolve() }
+                    selectAccount(u)
                 } label: {
                     HStack(spacing: 12) {
                         AsyncImage(url: api.proxyURL(for: u.profile_pic_url, filename: "\(u.username).jpg")) { img in
@@ -498,13 +484,28 @@ struct ContentView: View {
                         .font(.system(size: 13))
                         .foregroundColor(.gray)
 
-                    HStack(spacing: 14) {
-                        Text("**\(user.media_count)** posts").font(.system(size: 12))
-                        Text("**\(user.follower_count)** seg.").font(.system(size: 12))
-                        Text("**\(user.following_count)** sig.").font(.system(size: 12))
+                    if user.media_count > 0 || user.follower_count > 0 || !api.isLoading {
+                        HStack(spacing: 14) {
+                            Text("**\(user.media_count)** posts").font(.system(size: 12))
+                            Text("**\(user.follower_count)** seg.").font(.system(size: 12))
+                            Text("**\(user.following_count)** sig.").font(.system(size: 12))
+                        }
+                        .foregroundColor(.white.opacity(0.85))
                     }
-                    .foregroundColor(.white.opacity(0.85))
                 }
+            }
+
+            if api.isLoading && profilePosts.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView().tint(.pink)
+                    Text("Cargando historias y fotos de @\(user.username)...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.pink)
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color.pink.opacity(0.12))
+                .cornerRadius(10)
             }
 
             if !user.biography.isEmpty {
@@ -610,8 +611,27 @@ struct ContentView: View {
                 }
             }
 
-            // Grid de Publicaciones
-            if !profilePosts.isEmpty {
+            // Grid de Publicaciones con Skeleton Loading
+            if profilePosts.isEmpty && api.isLoading {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("CARGANDO PUBLICACIONES...")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                        ForEach(0..<6, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.white.opacity(0.06))
+                                .frame(height: 115)
+                                .overlay(
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.white.opacity(0.3))
+                                )
+                        }
+                    }
+                }
+            } else if !profilePosts.isEmpty {
                 Text("PUBLICACIONES (\(profilePosts.count))")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.gray)
@@ -725,6 +745,79 @@ struct ContentView: View {
     }
 
     // MARK: - Actions
+    private func selectAccount(_ u: SearchUser) {
+        searchText = "@\(u.username)"
+        searchResults = []
+
+        // Optimistic UI: Mostrar perfil inmediatamente sin esperar la red
+        let placeholder = ProfileUser(
+            pk: u.pk,
+            username: u.username,
+            full_name: u.full_name,
+            biography: "",
+            profile_pic_hd: u.profile_pic_url,
+            is_private: u.is_private,
+            is_verified: u.is_verified,
+            media_count: 0,
+            follower_count: 0,
+            following_count: 0
+        )
+        resolvedProfile = ResolveResponse(
+            status: "ok",
+            type: "profile",
+            user: placeholder,
+            stories: [],
+            highlights: [],
+            posts: [],
+            next_cursor: nil,
+            username: u.username,
+            count: 0,
+            items: []
+        )
+        profilePosts = []
+        directItems = []
+
+        Task {
+            await handleResolve()
+        }
+    }
+
+    private func selectSavedAccount(_ account: SavedAccount) {
+        searchText = "@\(account.username)"
+        searchResults = []
+
+        let placeholder = ProfileUser(
+            pk: "",
+            username: account.username,
+            full_name: account.full_name,
+            biography: "",
+            profile_pic_hd: account.profile_pic,
+            is_private: false,
+            is_verified: false,
+            media_count: 0,
+            follower_count: 0,
+            following_count: 0
+        )
+        resolvedProfile = ResolveResponse(
+            status: "ok",
+            type: "profile",
+            user: placeholder,
+            stories: [],
+            highlights: [],
+            posts: [],
+            next_cursor: nil,
+            username: account.username,
+            count: 0,
+            items: []
+        )
+        profilePosts = []
+        directItems = []
+
+        Task {
+            await handleResolve()
+        }
+    }
+
     private func runAccountSearch() async {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
@@ -1699,32 +1792,11 @@ struct InstagramWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - Métodos de Inicio de Sesión
-enum LoginMethod: Int, CaseIterable, Identifiable {
-    case officialWeb = 0
-    case credentials = 1
-    case sessionidCookie = 2
-
-    var id: Int { rawValue }
-    var title: String {
-        switch self {
-        case .officialWeb: return "🌐 Web Oficial"
-        case .credentials: return "🔑 Usuario/Clave"
-        case .sessionidCookie: return "🍪 Cookie"
-        }
-    }
-}
-
 // MARK: - Hoja de Login con Web Oficial de Instagram
 struct LoginSheetView: View {
     @ObservedObject var api: APIClient
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedMethod: LoginMethod = .officialWeb
-    @State private var username = ""
-    @State private var password = ""
-    @State private var code2FA = ""
-    @State private var sessionid = ""
     @State private var statusFeedback = ""
     @State private var isSubmitting = false
     @State private var webIsLoading = true
@@ -1752,28 +1824,7 @@ struct LoginSheetView: View {
                         .padding(.top, 10)
                     }
 
-                    // Selector de método
-                    Picker("Método de Inicio", selection: $selectedMethod) {
-                        ForEach(LoginMethod.allCases) { method in
-                            Text(method.title).tag(method)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 6)
-
-                    // Contenido según el modo
-                    Group {
-                        switch selectedMethod {
-                        case .officialWeb:
-                            officialWebLoginView
-                        case .credentials:
-                            credentialsLoginView
-                        case .sessionidCookie:
-                            cookieLoginView
-                        }
-                    }
+                    officialWebLoginView
 
                     if !statusFeedback.isEmpty {
                         Text(statusFeedback)
@@ -2026,69 +2077,6 @@ struct LoginSheetView: View {
         }
     }
 
-    private var credentialsLoginView: some View {
-        Form {
-            Section {
-                TextField("Usuario de Instagram", text: $username)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                SecureField("Contraseña", text: $password)
-                TextField("Código 2FA (Opcional)", text: $code2FA)
-                    .keyboardType(.numberPad)
-            } header: {
-                Text("Usuario y Contraseña")
-            } footer: {
-                Text("Si tienes verificación en 2 pasos o Instagram solicita comprobación de seguridad, usa la pestaña 🌐 Web Oficial.")
-            }
-
-            Section {
-                Button {
-                    Task { await submitDirectLogin() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if isSubmitting { ProgressView().padding(.trailing, 4) }
-                        Text("Iniciar Sesión")
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                }
-                .disabled(username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isSubmitting)
-            }
-        }
-        .scrollContentBackground(.hidden)
-    }
-
-    private var cookieLoginView: some View {
-        Form {
-            Section {
-                SecureField("Pega tu cookie sessionid...", text: $sessionid)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-            } header: {
-                Text("Cookie sessionid")
-            } footer: {
-                Text("Pega la cookie 'sessionid' obtenida desde la versión web de Instagram.")
-            }
-
-            Section {
-                Button {
-                    Task { await submitCookieLogin() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if isSubmitting { ProgressView().padding(.trailing, 4) }
-                        Text("Conectar con Cookie")
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                }
-                .disabled(sessionid.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting)
-            }
-        }
-        .scrollContentBackground(.hidden)
-    }
-
     private func handleCapturedSession(_ sid: String) {
         guard !isSubmitting else { return }
         isSubmitting = true
@@ -2104,44 +2092,6 @@ struct LoginSheetView: View {
                 isSubmitting = false
                 statusFeedback = "❌ Error al conectar sesión: \(error.localizedDescription)"
             }
-        }
-    }
-
-    private func submitDirectLogin() async {
-        isSubmitting = true
-        defer { isSubmitting = false }
-        let payload = LoginPayload(
-            username: username.trimmingCharacters(in: .whitespaces),
-            password: password,
-            verification_code: code2FA.trimmingCharacters(in: .whitespaces).isEmpty ? nil : code2FA.trimmingCharacters(in: .whitespaces),
-            sessionid: nil
-        )
-        do {
-            let msg = try await api.login(payload: payload)
-            api.toastMessage = "✅ \(msg)"
-            showingChangeAccount = false
-            dismiss()
-        } catch {
-            statusFeedback = "❌ \(error.localizedDescription)"
-        }
-    }
-
-    private func submitCookieLogin() async {
-        isSubmitting = true
-        defer { isSubmitting = false }
-        let payload = LoginPayload(
-            username: nil,
-            password: nil,
-            verification_code: nil,
-            sessionid: sessionid.trimmingCharacters(in: .whitespaces)
-        )
-        do {
-            let msg = try await api.login(payload: payload)
-            api.toastMessage = "✅ \(msg)"
-            showingChangeAccount = false
-            dismiss()
-        } catch {
-            statusFeedback = "❌ \(error.localizedDescription)"
         }
     }
 }
