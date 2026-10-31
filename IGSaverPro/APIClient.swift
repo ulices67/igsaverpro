@@ -20,9 +20,18 @@ class APIClient: ObservableObject {
     private static let sessionKeyAccount = "instagram_sessionid"
     private static let sessionStatusDefaultsKey = "ig_cached_session_status"
 
+    // Caché en memoria para perfiles (0ms respuesta instantánea al re-visitar)
+    private var profileCache: [String: (response: ResolveResponse, timestamp: Date)] = [:]
+
     init() {
         // Old saved tunnels must never override the production endpoint.
         UserDefaults.standard.removeObject(forKey: "ig_server_url")
+
+        // Caché de alto rendimiento (50MB RAM + 250MB Disco) para imágenes y medios
+        let memoryCap = 50 * 1024 * 1024
+        let diskCap = 250 * 1024 * 1024
+        URLCache.shared = URLCache(memoryCapacity: memoryCap, diskCapacity: diskCap, diskPath: "igsaver_url_cache")
+
         do {
             installationToken = try Self.loadInstallationToken()
         } catch {
@@ -298,15 +307,38 @@ class APIClient: ObservableObject {
         return decoded.users
     }
 
-    func resolve(input: String) async throws -> ResolveResponse {
-        try await executeResolve(input: input)
+    func getCachedProfile(for input: String) -> ResolveResponse? {
+        let key = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard let item = profileCache[key] else { return nil }
+        if Date().timeIntervalSince(item.timestamp) < 300 { // 5 min TTL
+            return item.response
+        }
+        return nil
     }
 
-    private func executeResolve(input: String) async throws -> ResolveResponse {
+    func setCachedProfile(for input: String, response: ResolveResponse) {
+        let key = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        profileCache[key] = (response, Date())
+    }
+
+    func resolve(input: String, userId: String? = nil, forceRefresh: Bool = false) async throws -> ResolveResponse {
+        try await executeResolve(input: input, userId: userId, forceRefresh: forceRefresh)
+    }
+
+    private func executeResolve(input: String, userId: String? = nil, forceRefresh: Bool = false) async throws -> ResolveResponse {
+        let key = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !forceRefresh, let cached = getCachedProfile(for: input) {
+            return cached
+        }
+
         guard var comps = URLComponents(string: "\(serverURL)/api/resolve") else {
             throw URLError(.badURL)
         }
-        comps.queryItems = [URLQueryItem(name: "url", value: input)]
+        var queryItems = [URLQueryItem(name: "url", value: input)]
+        if let uid = userId, !uid.isEmpty {
+            queryItems.append(URLQueryItem(name: "user_id", value: uid))
+        }
+        comps.queryItems = queryItems
         guard let url = comps.url else { throw URLError(.badURL) }
 
         var req = URLRequest(url: url)
@@ -318,7 +350,9 @@ class APIClient: ObservableObject {
                 NSLocalizedDescriptionKey: errObj?.detail ?? "No se pudo obtener el contenido"
             ])
         }
-        return try JSONDecoder().decode(ResolveResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(ResolveResponse.self, from: data)
+        setCachedProfile(for: input, response: decoded)
+        return decoded
     }
 
     func fetchHighlight(pk: String) async throws -> HighlightDetailResponse {

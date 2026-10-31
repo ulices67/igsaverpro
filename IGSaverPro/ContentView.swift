@@ -749,7 +749,16 @@ struct ContentView: View {
         searchText = "@\(u.username)"
         searchResults = []
 
-        // Optimistic UI: Mostrar perfil inmediatamente sin esperar la red
+        // 1. Acceso instantáneo por caché en memoria (0ms)
+        if let cached = api.getCachedProfile(for: "@\(u.username)") {
+            resolvedProfile = cached
+            profilePosts = cached.posts ?? []
+            nextCursor = cached.next_cursor ?? ""
+            directItems = []
+            return
+        }
+
+        // 2. Optimistic UI: Mostrar perfil preliminar de inmediato
         let placeholder = ProfileUser(
             pk: u.pk,
             username: u.username,
@@ -778,13 +787,21 @@ struct ContentView: View {
         directItems = []
 
         Task {
-            await handleResolve()
+            await handleResolve(userId: u.pk)
         }
     }
 
     private func selectSavedAccount(_ account: SavedAccount) {
         searchText = "@\(account.username)"
         searchResults = []
+
+        if let cached = api.getCachedProfile(for: "@\(account.username)") {
+            resolvedProfile = cached
+            profilePosts = cached.posts ?? []
+            nextCursor = cached.next_cursor ?? ""
+            directItems = []
+            return
+        }
 
         let placeholder = ProfileUser(
             pk: "",
@@ -830,7 +847,7 @@ struct ContentView: View {
         }
     }
 
-    private func handleResolve() async {
+    private func handleResolve(userId: String? = nil, forceRefresh: Bool = false) async {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
         searchResults = []
@@ -838,7 +855,7 @@ struct ContentView: View {
         defer { api.isLoading = false }
 
         do {
-            let res = try await api.resolve(input: q)
+            let res = try await api.resolve(input: q, userId: userId, forceRefresh: forceRefresh)
             if res.type == "profile" {
                 resolvedProfile = res
                 profilePosts = res.posts ?? []
