@@ -14,11 +14,13 @@ class APIClient: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var toastMessage: String?
+    @Published var savedAccounts: [SavedLoginAccount] = []
     static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
 
     private static let sessionKeyService = "com.igsaverpro.auth"
     private static let sessionKeyAccount = "instagram_sessionid"
     private static let sessionStatusDefaultsKey = "ig_cached_session_status"
+    private static let savedAccountsDefaultsKey = "ig_saved_login_accounts"
 
     // Caché en memoria para perfiles (0ms respuesta instantánea al re-visitar)
     private var profileCache: [String: (response: ResolveResponse, timestamp: Date)] = [:]
@@ -38,9 +40,23 @@ class APIClient: ObservableObject {
             errorMessage = "No se pudo preparar la conexión segura. Desbloquea el iPhone y vuelve a abrir la app."
         }
 
-        // Cargar inmediatamente la sesión guardada localmente para inicio instantáneo (0s espera)
+        // Cargar cuentas guardadas
+        self.savedAccounts = Self.loadSavedAccounts()
+
+        // Cargar inmediatamente la sesión activa para inicio instantáneo (0s espera)
         if let cached = Self.loadCachedSessionStatus(), cached.logged_in {
             self.sessionStatus = cached
+            self.isServiceAvailable = true
+        } else if let first = self.savedAccounts.first {
+            let restored = SessionStatus(
+                logged_in: true,
+                user_id: nil,
+                username: first.username,
+                session_file_exists: true
+            )
+            self.sessionStatus = restored
+            Self.saveCachedSessionStatus(restored)
+            Self.saveSessionId(first.sessionid)
             self.isServiceAvailable = true
         }
     }
@@ -102,6 +118,112 @@ class APIClient: ObservableObject {
 
     static func clearCachedSessionStatus() {
         UserDefaults.standard.removeObject(forKey: sessionStatusDefaultsKey)
+    }
+
+    // MARK: - Multi-Cuenta (Cuentas Guardadas)
+    static func loadSavedAccounts() -> [SavedLoginAccount] {
+        guard let data = UserDefaults.standard.data(forKey: savedAccountsDefaultsKey),
+              let list = try? JSONDecoder().decode([SavedLoginAccount].self, from: data) else {
+            // Migración automática si ya existía sesión en Keychain
+            if let sid = loadSavedSessionId(), let cached = loadCachedSessionStatus(), let uname = cached.username, cached.logged_in {
+                let first = SavedLoginAccount(
+                    username: uname,
+                    sessionid: sid,
+                    full_name: uname,
+                    profile_pic_url: "",
+                    dateAdded: Date()
+                )
+                saveSavedAccounts([first])
+                return [first]
+            }
+            return []
+        }
+        return list
+    }
+
+    static func saveSavedAccounts(_ accounts: [SavedLoginAccount]) {
+        if let data = try? JSONEncoder().encode(accounts) {
+            UserDefaults.standard.set(data, forKey: savedAccountsDefaultsKey)
+        }
+    }
+
+    func addOrUpdateSavedAccount(username: String, sessionid: String, fullName: String = "", profilePic: String = "") {
+        var list = Self.loadSavedAccounts()
+        let cleanUname = username.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "@", with: "")
+        let finalFullName = fullName.isEmpty ? cleanUname : fullName
+
+        if let idx = list.firstIndex(where: { $0.id == cleanUname.lowercased() }) {
+            list[idx] = SavedLoginAccount(
+                username: cleanUname,
+                sessionid: sessionid,
+                full_name: finalFullName,
+                profile_pic_url: profilePic.isEmpty ? list[idx].profile_pic_url : profilePic,
+                dateAdded: Date()
+            )
+        } else {
+            let newAcc = SavedLoginAccount(
+                username: cleanUname,
+                sessionid: sessionid,
+                full_name: finalFullName,
+                profile_pic_url: profilePic,
+                dateAdded: Date()
+            )
+            list.insert(newAcc, at: 0)
+        }
+        Self.saveSavedAccounts(list)
+        DispatchQueue.main.async {
+            self.savedAccounts = list
+        }
+    }
+
+    func switchToAccount(_ account: SavedLoginAccount) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        // 1. Cambio visual optimista instantáneo (0ms)
+        let updatedStatus = SessionStatus(
+            logged_in: true,
+            user_id: nil,
+            username: account.username,
+            session_file_exists: true
+        )
+        self.sessionStatus = updatedStatus
+        Self.saveCachedSessionStatus(updatedStatus)
+        Self.saveSessionId(account.sessionid)
+
+        // 2. Mover la cuenta al inicio
+        var list = Self.loadSavedAccounts()
+        list.removeAll { $0.id == account.id }
+        var updatedAccount = account
+        updatedAccount.dateAdded = Date()
+        list.insert(updatedAccount, at: 0)
+        Self.saveSavedAccounts(list)
+        self.savedAccounts = list
+
+        // 3. Sincronizar backend con la sesión
+        do {
+            let payload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: account.sessionid)
+            _ = try await login(payload: payload)
+            toastMessage = "✅ Conectado a @\(account.username)"
+        } catch {
+            errorMessage = "No se pudo cambiar a @\(account.username): \(error.localizedDescription)"
+        }
+    }
+
+    func removeSavedAccount(_ account: SavedLoginAccount) async {
+        var list = Self.loadSavedAccounts()
+        list.removeAll { $0.id == account.id }
+        Self.saveSavedAccounts(list)
+        self.savedAccounts = list
+
+        // Si la cuenta eliminada era la activa actual
+        if sessionStatus.username?.lowercased() == account.username.lowercased() {
+            if let next = list.first {
+                await switchToAccount(next)
+            } else {
+                await logout()
+            }
+        }
     }
 
     private static func loadInstallationToken() throws -> String {
@@ -254,13 +376,25 @@ class APIClient: ObservableObject {
             ])
         }
 
-        if let sid = payload.sessionid ?? decoded.sessionid, !sid.isEmpty {
+        let sid = payload.sessionid ?? decoded.sessionid ?? ""
+        let uname = decoded.username ?? sessionStatus.username ?? "usuario"
+        let fullName = decoded.full_name ?? uname
+        let profilePic = decoded.profile_pic_url ?? ""
+
+        if !sid.isEmpty {
             Self.saveSessionId(sid)
+            addOrUpdateSavedAccount(
+                username: uname,
+                sessionid: sid,
+                fullName: fullName,
+                profilePic: profilePic
+            )
         }
+
         let updated = SessionStatus(
             logged_in: true,
             user_id: nil,
-            username: decoded.username ?? sessionStatus.username,
+            username: uname,
             session_file_exists: true
         )
         self.sessionStatus = updated
@@ -274,6 +408,8 @@ class APIClient: ObservableObject {
     func logout() async {
         Self.deleteSavedSessionId()
         Self.clearCachedSessionStatus()
+        Self.saveSavedAccounts([])
+        self.savedAccounts = []
         sessionStatus = SessionStatus(logged_in: false, user_id: nil, username: nil, session_file_exists: false)
         guard let url = URL(string: "\(serverURL)/api/logout") else { return }
         var req = URLRequest(url: url)

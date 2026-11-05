@@ -17,9 +17,21 @@ struct LoginPayload: Codable {
 struct LoginResponse: Codable {
     let status: String?
     let username: String?
+    let full_name: String?
+    let profile_pic_url: String?
     let sessionid: String?
     let message: String?
     let detail: String?
+}
+
+struct SavedLoginAccount: Codable, Identifiable, Equatable {
+    let username: String
+    let sessionid: String
+    var full_name: String
+    var profile_pic_url: String
+    var dateAdded: Date
+
+    var id: String { username.lowercased() }
 }
 
 struct SearchUser: Codable, Identifiable {

@@ -186,23 +186,61 @@ struct ContentView: View {
                 }
             }
             Spacer()
-            Button {
-                showingLoginSheet = true
-            } label: {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(!api.isServiceAvailable ? Color.gray : api.sessionStatus.logged_in ? Color.green : Color.orange)
-                        .frame(width: 8, height: 8)
-                    Text(!api.isServiceAvailable ? "Sin conexión" : api.sessionStatus.logged_in ? "@\(api.sessionStatus.username ?? "Conectado")" : "Iniciar Sesión")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+            if api.savedAccounts.count > 1 {
+                Menu {
+                    Section("Cambiar de Cuenta") {
+                        ForEach(api.savedAccounts) { acc in
+                            Button {
+                                if api.sessionStatus.username?.lowercased() != acc.username.lowercased() {
+                                    Task { await api.switchToAccount(acc) }
+                                }
+                            } label: {
+                                if api.sessionStatus.username?.lowercased() == acc.username.lowercased() {
+                                    Label("@\(acc.username) (Activa)", systemImage: "checkmark")
+                                } else {
+                                    Text("@\(acc.username)")
+                                }
+                            }
+                        }
+                    }
+                    Section {
+                        Button {
+                            showingLoginSheet = true
+                        } label: {
+                            Label("Administrar Cuentas...", systemImage: "person.2.badge.gearshape")
+                        }
+                    }
+                } label: {
+                    headerAccountPill
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
+            } else {
+                Button {
+                    showingLoginSheet = true
+                } label: {
+                    headerAccountPill
+                }
             }
         }
+    }
+
+    private var headerAccountPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(!api.isServiceAvailable ? Color.gray : api.sessionStatus.logged_in ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
+            Text(!api.isServiceAvailable ? "Sin conexión" : api.sessionStatus.logged_in ? "@\(api.sessionStatus.username ?? "Conectado")" : "Iniciar Sesión")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
+            if api.sessionStatus.logged_in {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.08))
+        .clipShape(Capsule())
     }
 
     // MARK: - Search & Input Card
@@ -1809,7 +1847,7 @@ struct InstagramWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - Hoja de Login con Web Oficial de Instagram
+// MARK: - Hoja de Gestión de Cuentas y Login con Web Oficial
 struct LoginSheetView: View {
     @ObservedObject var api: APIClient
     @Environment(\.dismiss) private var dismiss
@@ -1818,186 +1856,307 @@ struct LoginSheetView: View {
     @State private var isSubmitting = false
     @State private var webIsLoading = true
     @State private var webViewID = UUID()
-    @State private var showingChangeAccount = false
+    @State private var showingAddAccount = false
+    @State private var accountToLogout: SavedLoginAccount? = nil
+    @State private var showingLogoutConfirmation = false
+    @State private var switchingAccountId: String? = nil
+
+    var hasAccounts: Bool {
+        !api.savedAccounts.isEmpty || api.sessionStatus.logged_in
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if api.sessionStatus.logged_in && !showingChangeAccount {
-                    activeSessionFullView
+            ZStack {
+                Color(red: 0.05, green: 0.05, blue: 0.07).ignoresSafeArea()
+
+                if hasAccounts && !showingAddAccount {
+                    accountsManagerView
                 } else {
-                    if showingChangeAccount && api.sessionStatus.logged_in {
-                        HStack {
-                            Button {
-                                showingChangeAccount = false
-                            } label: {
-                                Label("Volver a cuenta guardada", systemImage: "chevron.left")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-                            }
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                    }
-
-                    officialWebLoginView
-
-                    if !statusFeedback.isEmpty {
-                        Text(statusFeedback)
-                            .font(.footnote)
-                            .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                    }
+                    addAccountWebView
                 }
             }
-            .background(Color(red: 0.05, green: 0.05, blue: 0.07).ignoresSafeArea())
-            .navigationTitle(api.sessionStatus.logged_in && !showingChangeAccount ? "Cuenta Conectada" : "Sesión de Instagram")
+            .navigationTitle(hasAccounts && !showingAddAccount ? "Mis Cuentas" : "Añadir Cuenta")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundColor(.white)
-                }
-            }
-        }
-    }
-
-    private var activeSessionFullView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.12))
-                    .frame(width: 96, height: 96)
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 48))
-                    .foregroundColor(.green)
-            }
-
-            VStack(spacing: 8) {
-                Text("Sesión Guardada y Activa")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                Text("@\(api.sessionStatus.username ?? "Conectado")")
-                    .font(.title2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.green)
-                Text("Tu cuenta de Instagram está guardada de forma segura en este dispositivo. Permanecerás conectado automáticamente cada vez que abras la app sin necesidad de volver a iniciar sesión.")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-            }
-
-            HStack(spacing: 8) {
-                Circle().fill(Color.green).frame(width: 8, height: 8)
-                Text("Listo para buscar y descargar")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.85))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(20)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Continuar a la App")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.purple, Color.pink, Color.orange],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .cornerRadius(12)
-                }
-
-                Button {
-                    showingChangeAccount = true
-                } label: {
-                    Text("Cambiar de Cuenta")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white.opacity(0.85))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(12)
-                }
-
-                Button(role: .destructive) {
-                    Task {
-                        await api.logout()
-                        InstagramWebView.clearWebCookies {
-                            webViewID = UUID()
+                    if showingAddAccount && hasAccounts {
+                        Button {
+                            showingAddAccount = false
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("Cuentas")
+                            }
+                            .foregroundColor(.white)
                         }
-                        statusFeedback = "Sesión cerrada correctamente."
+                    } else {
+                        Button("Cerrar") { dismiss() }
+                            .foregroundColor(.white)
                     }
-                } label: {
-                    Text("Cerrar Sesión")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.pink)
-                        .padding(.top, 4)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .alert("Cerrar Sesión", isPresented: $showingLogoutConfirmation) {
+                Button("Cancelar", role: .cancel) { accountToLogout = nil }
+                Button("Eliminar Cuenta", role: .destructive) {
+                    if let acc = accountToLogout {
+                        Task {
+                            await api.removeSavedAccount(acc)
+                            accountToLogout = nil
+                        }
+                    }
+                }
+            } message: {
+                if let acc = accountToLogout {
+                    Text("¿Estás seguro de que deseas eliminar @\(acc.username) de este dispositivo?")
+                } else {
+                    Text("¿Estás seguro de que deseas eliminar esta cuenta?")
+                }
+            }
         }
     }
 
-    private var activeSessionHeader: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundColor(.green)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Sesión activa")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                Text("@\(api.sessionStatus.username ?? "Conectado")")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-            }
-            Spacer()
-            Button(role: .destructive) {
-                Task {
-                    await api.logout()
+    // MARK: - Vista de Gestión y Cambio de Cuentas
+    private var accountsManagerView: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Header informativo
+                VStack(spacing: 6) {
+                    Image(systemName: "person.2.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(LinearGradient(
+                            colors: [.orange, .pink, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                    Text("Cuentas de Instagram")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Text("Toca cualquier cuenta para cambiar al instante sin volver a iniciar sesión.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                .padding(.top, 16)
+
+                // Lista de cuentas guardadas
+                VStack(spacing: 10) {
+                    ForEach(api.savedAccounts) { acc in
+                        let isActive = api.sessionStatus.username?.lowercased() == acc.username.lowercased()
+                        let isSwitching = switchingAccountId == acc.id
+
+                        HStack(spacing: 12) {
+                            // Avatar
+                            if !acc.profile_pic_url.isEmpty {
+                                AsyncImage(url: api.proxyURL(for: acc.profile_pic_url, filename: "\(acc.username)_acc.jpg")) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.white.opacity(0.1)
+                                }
+                                .frame(width: 48, height: 48)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(isActive ? Color.green : Color.white.opacity(0.2), lineWidth: 2))
+                            } else {
+                                ZStack {
+                                    Circle()
+                                        .fill(LinearGradient(
+                                            colors: isActive ? [.green, .mint] : [.orange, .pink],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 48, height: 48)
+                                    Text(acc.username.prefix(1).uppercased())
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+
+                            // Info de la cuenta
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Text("@\(acc.username)")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(.white)
+
+                                    if isActive {
+                                        Text("ACTIVA")
+                                            .font(.system(size: 9, weight: .heavy))
+                                            .foregroundColor(.green)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.green.opacity(0.18))
+                                            .clipShape(Capsule())
+                                    }
+                                }
+
+                                if !acc.full_name.isEmpty && acc.full_name.lowercased() != acc.username.lowercased() {
+                                    Text(acc.full_name)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.gray)
+                                } else {
+                                    Text("Sesión lista para usar")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray.opacity(0.8))
+                                }
+                            }
+
+                            Spacer()
+
+                            // Indicador de cambio o estado
+                            if isSwitching {
+                                ProgressView()
+                                    .tint(.white)
+                                    .padding(.trailing, 4)
+                            } else if isActive {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(.green)
+                            } else {
+                                Button {
+                                    switchAccount(acc)
+                                } label: {
+                                    Text("Cambiar")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.white.opacity(0.12))
+                                        .cornerRadius(12)
+                                }
+                            }
+
+                            // Botón eliminar cuenta
+                            Button {
+                                accountToLogout = acc
+                                showingLogoutConfirmation = true
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                                    .padding(8)
+                            }
+                        }
+                        .padding(14)
+                        .background(isActive ? Color.white.opacity(0.08) : Color.white.opacity(0.04))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(isActive ? Color.green.opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !isActive && !isSwitching {
+                                switchAccount(acc)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                // Botón Añadir Otra Cuenta
+                Button {
                     InstagramWebView.clearWebCookies {
                         webViewID = UUID()
+                        showingAddAccount = true
                     }
-                    statusFeedback = "Sesión cerrada correctamente."
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.pink)
+                        Text("Añadir otra cuenta de Instagram")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(14)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
                 }
-            } label: {
-                Text("Cerrar Sesión")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.pink)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.pink.opacity(0.15))
-                    .cornerRadius(8)
+                .padding(.horizontal, 16)
+
+                if !statusFeedback.isEmpty {
+                    Text(statusFeedback)
+                        .font(.footnote)
+                        .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
+                        .padding(.horizontal, 16)
+                }
+
+                Spacer(minLength: 20)
+
+                // Botones de acción inferiores
+                VStack(spacing: 12) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Listo · Volver a la App")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(LinearGradient(
+                                colors: [.purple, .pink, .orange],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .cornerRadius(14)
+                    }
+
+                    Button(role: .destructive) {
+                        Task {
+                            await api.logout()
+                            InstagramWebView.clearWebCookies {
+                                webViewID = UUID()
+                            }
+                            statusFeedback = "Todas las sesiones han sido cerradas."
+                        }
+                    } label: {
+                        Text("Cerrar todas las sesiones")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.pink)
+                            .padding(.top, 4)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
         }
-        .padding(10)
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(12)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+    }
+
+    private func switchAccount(_ acc: SavedLoginAccount) {
+        switchingAccountId = acc.id
+        statusFeedback = "Cambiando a @\(acc.username)..."
+        Task {
+            await api.switchToAccount(acc)
+            switchingAccountId = nil
+            statusFeedback = "✅ Cambiado a @\(acc.username)"
+            dismiss()
+        }
+    }
+
+    // MARK: - Vista de WebView para añadir cuenta
+    private var addAccountWebView: some View {
+        VStack(spacing: 0) {
+            officialWebLoginView
+
+            if !statusFeedback.isEmpty {
+                Text(statusFeedback)
+                    .font(.footnote)
+                    .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+            }
+        }
     }
 
     private var officialWebLoginView: some View {
@@ -2097,13 +2256,14 @@ struct LoginSheetView: View {
     private func handleCapturedSession(_ sid: String) {
         guard !isSubmitting else { return }
         isSubmitting = true
-        statusFeedback = "Conectando sesión capturada..."
+        statusFeedback = "Conectando nueva cuenta de Instagram..."
         Task {
             let payload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: sid)
             do {
                 let msg = try await api.login(payload: payload)
                 api.toastMessage = "✅ \(msg)"
-                showingChangeAccount = false
+                isSubmitting = false
+                showingAddAccount = false
                 dismiss()
             } catch {
                 isSubmitting = false
