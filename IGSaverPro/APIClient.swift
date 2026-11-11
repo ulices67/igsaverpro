@@ -452,7 +452,9 @@ class APIClient: ObservableObject {
     func getCachedProfile(for input: String) -> ResolveResponse? {
         let key = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard let item = profileCache[key] else { return nil }
-        if Date().timeIntervalSince(item.timestamp) < 300 { // 5 min TTL
+        let hasContent = (item.response.posts?.isEmpty == false) || (item.response.highlights?.isEmpty == false)
+        let ttl: TimeInterval = hasContent ? 300 : 5
+        if Date().timeIntervalSince(item.timestamp) < ttl {
             return item.response
         }
         return nil

@@ -517,6 +517,17 @@ struct ContentView: View {
                         if user.is_private {
                             Image(systemName: "lock.fill").foregroundColor(.orange)
                         }
+                        Spacer()
+                        Button {
+                            Task { await handleResolve(userId: user.pk, forceRefresh: true) }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white.opacity(0.85))
+                                .padding(7)
+                                .background(Color.white.opacity(0.1))
+                                .clipShape(Circle())
+                        }
                     }
                     Text(user.full_name)
                         .font(.system(size: 13))
@@ -787,8 +798,9 @@ struct ContentView: View {
         searchText = "@\(u.username)"
         searchResults = []
 
-        // 1. Acceso instantáneo por caché en memoria (0ms)
-        if let cached = api.getCachedProfile(for: "@\(u.username)") {
+        // 1. Acceso instantáneo por caché en memoria (si tiene contenido)
+        if let cached = api.getCachedProfile(for: "@\(u.username)"),
+           (cached.posts?.isEmpty == false || cached.highlights?.isEmpty == false) {
             resolvedProfile = cached
             profilePosts = cached.posts ?? []
             nextCursor = cached.next_cursor ?? ""
@@ -833,7 +845,8 @@ struct ContentView: View {
         searchText = "@\(account.username)"
         searchResults = []
 
-        if let cached = api.getCachedProfile(for: "@\(account.username)") {
+        if let cached = api.getCachedProfile(for: "@\(account.username)"),
+           (cached.posts?.isEmpty == false || cached.highlights?.isEmpty == false) {
             resolvedProfile = cached
             profilePosts = cached.posts ?? []
             nextCursor = cached.next_cursor ?? ""
