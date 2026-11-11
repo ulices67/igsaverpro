@@ -1830,16 +1830,23 @@ struct InstagramWebView: UIViewRepresentable {
             guard !captured else { return }
             cookieStore.getAllCookies { [weak self] cookies in
                 guard let self = self, !self.captured else { return }
+                var foundSessionId: String? = nil
+                var foundUserId: String? = nil
+
                 for cookie in cookies {
-                    if cookie.name.lowercased() == "sessionid" {
-                        let val = cookie.value.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !val.isEmpty && val != "\"\"" {
-                            self.captured = true
-                            DispatchQueue.main.async {
-                                self.parent.onSessionCaptured?(val)
-                            }
-                            break
-                        }
+                    let name = cookie.name.lowercased()
+                    let val = cookie.value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if name == "sessionid" && !val.isEmpty && val != "\"\"" {
+                        foundSessionId = val
+                    } else if name == "ds_user_id" && !val.isEmpty && val != "\"\"" {
+                        foundUserId = val
+                    }
+                }
+
+                if let sid = foundSessionId, (foundUserId != nil || sid.contains("%3A") || sid.contains(":")) {
+                    self.captured = true
+                    DispatchQueue.main.async {
+                        self.parent.onSessionCaptured?(sid)
                     }
                 }
             }
@@ -1911,6 +1918,13 @@ struct LoginSheetView: View {
                     Text("¿Estás seguro de que deseas eliminar @\(acc.username) de este dispositivo?")
                 } else {
                     Text("¿Estás seguro de que deseas eliminar esta cuenta?")
+                }
+            }
+            .onAppear {
+                if !hasAccounts {
+                    InstagramWebView.clearWebCookies {
+                        webViewID = UUID()
+                    }
                 }
             }
         }
@@ -2267,7 +2281,9 @@ struct LoginSheetView: View {
                 dismiss()
             } catch {
                 isSubmitting = false
-                statusFeedback = "❌ Error al conectar sesión: \(error.localizedDescription)"
+                statusFeedback = "❌ \(error.localizedDescription)"
+                // Recreamos la vista web para permitir reintentar limpiamente
+                webViewID = UUID()
             }
         }
     }

@@ -272,9 +272,11 @@ class APIClient: ObservableObject {
             if !(200..<300).contains(response.statusCode) {
                 if response.statusCode >= 500 { isServiceAvailable = false }
                 let detail = (try? JSONDecoder().decode(LoginResponse.self, from: result.0))?.detail
-                let message = response.statusCode >= 500
-                    ? "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos."
-                    : (detail ?? "No se pudo completar la operación.")
+                let message = (detail != nil && !detail!.isEmpty)
+                    ? detail!
+                    : (response.statusCode >= 500
+                        ? "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos."
+                        : "No se pudo completar la operación.")
                 throw NSError(domain: "IGSaver", code: response.statusCode,
                               userInfo: [NSLocalizedDescriptionKey: message])
             }
@@ -316,10 +318,14 @@ class APIClient: ObservableObject {
                 do {
                     let restorePayload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: savedSid)
                     _ = try await self.loginSilent(payload: restorePayload)
-                } catch {
+                } catch let err as NSError where err.code == 400 || err.code == 401 {
+                    // Solo borramos la cookie si el servidor confirmó explícitamente que la sesión expiró o es inválida
                     Self.deleteSavedSessionId()
                     Self.clearCachedSessionStatus()
                     self.sessionStatus = status
+                } catch {
+                    // En caso de fallo de red o servidor temporal, mantenemos la sesión guardada localmente
+                    print("Aviso: Error temporal al restaurar sesión en segundo plano: \(error.localizedDescription)")
                 }
             } else {
                 self.sessionStatus = status
