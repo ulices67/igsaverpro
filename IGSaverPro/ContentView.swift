@@ -1867,7 +1867,7 @@ struct InstagramWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - Hoja de Gestión de Cuentas y Login con Web Oficial
+// MARK: - Hoja de Gestión de Cuentas y Login con Web Oficial y Conexión Directa en la Nube
 struct LoginSheetView: View {
     @ObservedObject var api: APIClient
     @Environment(\.dismiss) private var dismiss
@@ -1881,6 +1881,18 @@ struct LoginSheetView: View {
     @State private var showingLogoutConfirmation = false
     @State private var switchingAccountId: String? = nil
 
+    // Pestañas de Login y Conexión en la Nube
+    @State private var selectedLoginTab = 0 // 0: Web Oficial, 1: Conectar en la Nube
+    @State private var cloudMethod = 0 // 0: Usuario & Contraseña, 1: Cookie sessionid
+    @State private var cloudUsername = ""
+    @State private var cloudPassword = ""
+    @State private var cloud2FACode = ""
+    @State private var cloudSessionId = ""
+    @State private var isPingingServer = false
+    @State private var serverPingMessage = ""
+    @State private var serverLatency: Int? = nil
+    @State private var serverIsOnline: Bool? = nil
+
     var hasAccounts: Bool {
         !api.savedAccounts.isEmpty || api.sessionStatus.logged_in
     }
@@ -1893,7 +1905,7 @@ struct LoginSheetView: View {
                 if hasAccounts && !showingAddAccount {
                     accountsManagerView
                 } else {
-                    addAccountWebView
+                    addAccountContainerView
                 }
             }
             .navigationTitle(hasAccounts && !showingAddAccount ? "Mis Cuentas" : "Añadir Cuenta")
@@ -1967,6 +1979,38 @@ struct LoginSheetView: View {
                         .padding(.horizontal, 24)
                 }
                 .padding(.top, 16)
+
+                // Diagnóstico rápido de servidores en la nube
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(serverIsOnline == false ? Color.red : Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("Servidor en la Nube:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.gray)
+                    Text(serverLatency != nil ? "Activo (\(serverLatency!) ms)" : "Listo")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.green)
+                    Spacer()
+                    Button {
+                        runServerPing()
+                    } label: {
+                        if isPingingServer {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
 
                 // Lista de cuentas guardadas
                 VStack(spacing: 10) {
@@ -2171,21 +2215,35 @@ struct LoginSheetView: View {
         }
     }
 
-    // MARK: - Vista de WebView para añadir cuenta
-    private var addAccountWebView: some View {
-        VStack(spacing: 0) {
-            officialWebLoginView
+    // MARK: - Contenedor con Tabs para Añadir Cuenta
+    private var addAccountContainerView: some View {
+        VStack(spacing: 10) {
+            // Selector de pestaña: Navegador Web vs Conectar en la Nube
+            Picker("Modo de Conexión", selection: $selectedLoginTab) {
+                Label("Navegador Web", systemImage: "safari.fill").tag(0)
+                Label("Conectar en la Nube", systemImage: "icloud.fill").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            if selectedLoginTab == 0 {
+                officialWebLoginView
+            } else {
+                directCloudLoginView
+            }
 
             if !statusFeedback.isEmpty {
                 Text(statusFeedback)
                     .font(.footnote)
                     .foregroundColor(statusFeedback.starts(with: "✅") ? .green : .pink)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 4)
             }
         }
     }
 
+    // MARK: - Pestaña 1: Login Web Oficial
     private var officialWebLoginView: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
@@ -2280,6 +2338,307 @@ struct LoginSheetView: View {
         }
     }
 
+    // MARK: - Pestaña 2: Conexión Directa en la Nube
+    private var directCloudLoginView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Tarjeta de Estado y Despertador de Servidores
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(serverIsOnline == false ? Color.red : Color.green)
+                            .frame(width: 10, height: 10)
+                        
+                        Text(serverIsOnline == false ? "Servidor desconectado" : "Servidores en la Nube Activos")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Spacer()
+
+                        if let lat = serverLatency {
+                            Text("\(lat) ms")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.green.opacity(0.15))
+                                .cornerRadius(8)
+                        }
+
+                        Button {
+                            runServerPing()
+                        } label: {
+                            if isPingingServer {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.15))
+                                    .clipShape(Circle())
+                            }
+                        }
+                    }
+
+                    if !serverPingMessage.isEmpty {
+                        Text(serverPingMessage)
+                            .font(.system(size: 11))
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(14)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+
+                // Sub-selector de método en la nube
+                Picker("Método en la Nube", selection: $cloudMethod) {
+                    Text("Usuario y Contraseña").tag(0)
+                    Text("Cookie sessionid").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+
+                if cloudMethod == 0 {
+                    // Formulario de credenciales
+                    VStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Usuario")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.gray)
+                            HStack {
+                                Image(systemName: "at")
+                                    .foregroundColor(.gray)
+                                TextField("usuario_de_instagram", text: $cloudUsername)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Contraseña")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.gray)
+                            HStack {
+                                Image(systemName: "lock")
+                                    .foregroundColor(.gray)
+                                SecureField("••••••••••••", text: $cloudPassword)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Código 2FA")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.gray)
+                                Text("(opcional si tienes 2 pasos)")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray.opacity(0.7))
+                            }
+                            HStack {
+                                Image(systemName: "shield.checkered")
+                                    .foregroundColor(.gray)
+                                TextField("123456", text: $cloud2FACode)
+                                    .keyboardType(.numberPad)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                        }
+
+                        Button {
+                            submitCloudCredentials()
+                        } label: {
+                            HStack {
+                                if isSubmitting {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .padding(.trailing, 4)
+                                }
+                                Image(systemName: "icloud.and.arrow.up.fill")
+                                Text(isSubmitting ? "Conectando con la Nube..." : "Conectar Directamente en la Nube")
+                                    .fontWeight(.bold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(LinearGradient(
+                                colors: [.purple, .pink, .orange],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .cornerRadius(14)
+                        }
+                        .disabled(isSubmitting || cloudUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || cloudPassword.isEmpty)
+                        .opacity((cloudUsername.isEmpty || cloudPassword.isEmpty) ? 0.6 : 1.0)
+                        .padding(.top, 4)
+                    }
+                    .padding(16)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(16)
+                    .padding(.horizontal, 16)
+                } else {
+                    // Formulario de Cookie sessionid
+                    VStack(spacing: 12) {
+                        Text("Pega el valor de la cookie 'sessionid' de tu cuenta de Instagram. Se conecta al instante sin retos ni verificaciones adicionales.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Valor de sessionid")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.gray)
+                                Spacer()
+                                Button {
+                                    if let paste = UIPasteboard.general.string {
+                                        cloudSessionId = paste
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "doc.on.clipboard")
+                                        Text("Pegar")
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.pink)
+                                }
+                            }
+
+                            HStack {
+                                Image(systemName: "key.fill")
+                                    .foregroundColor(.gray)
+                                TextField("6871234567%3A...", text: $cloudSessionId)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                        }
+
+                        Button {
+                            submitCloudSessionId()
+                        } label: {
+                            HStack {
+                                if isSubmitting {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .padding(.trailing, 4)
+                                }
+                                Image(systemName: "bolt.fill")
+                                Text(isSubmitting ? "Conectando..." : "Conectar con sessionid")
+                                    .fontWeight(.bold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(LinearGradient(
+                                colors: [.purple, .pink, .orange],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .cornerRadius(14)
+                        }
+                        .disabled(isSubmitting || cloudSessionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .opacity(cloudSessionId.isEmpty ? 0.6 : 1.0)
+                        .padding(.top, 4)
+                    }
+                    .padding(16)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(16)
+                    .padding(.horizontal, 16)
+                }
+
+                Text("Conexión cifrada a través de Cloudflare Edge y Render Cloud.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray.opacity(0.7))
+                    .padding(.top, 8)
+            }
+            .padding(.vertical, 8)
+        }
+        .onAppear {
+            if serverLatency == nil {
+                runServerPing()
+            }
+        }
+    }
+
+    private func runServerPing() {
+        guard !isPingingServer else { return }
+        isPingingServer = true
+        serverPingMessage = "Comprobando conexión con la nube..."
+        Task {
+            let res = await api.pingCloudServers()
+            isPingingServer = false
+            serverLatency = res.latencyMs
+            serverIsOnline = res.gateway && res.backend
+            serverPingMessage = res.message
+        }
+    }
+
+    private func submitCloudCredentials() {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        statusFeedback = "Conectando cuenta en la nube..."
+        Task {
+            do {
+                let msg = try await api.loginWithCredentials(
+                    username: cloudUsername,
+                    password: cloudPassword,
+                    verificationCode: cloud2FACode
+                )
+                api.toastMessage = "✅ \(msg)"
+                isSubmitting = false
+                showingAddAccount = false
+                dismiss()
+            } catch {
+                isSubmitting = false
+                statusFeedback = "❌ \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func submitCloudSessionId() {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        statusFeedback = "Conectando cookie sessionid en la nube..."
+        Task {
+            do {
+                let msg = try await api.connectWithSessionId(cloudSessionId)
+                api.toastMessage = "✅ \(msg)"
+                isSubmitting = false
+                showingAddAccount = false
+                dismiss()
+            } catch {
+                isSubmitting = false
+                statusFeedback = "❌ \(error.localizedDescription)"
+            }
+        }
+    }
+
     private func handleCapturedSession(_ sid: String) {
         guard !isSubmitting else { return }
         isSubmitting = true
@@ -2295,7 +2654,6 @@ struct LoginSheetView: View {
             } catch {
                 isSubmitting = false
                 statusFeedback = "❌ \(error.localizedDescription)"
-                // Recreamos la vista web para permitir reintentar limpiamente
                 webViewID = UUID()
             }
         }

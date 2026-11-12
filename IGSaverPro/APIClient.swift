@@ -61,9 +61,15 @@ class APIClient: ObservableObject {
         }
     }
 
+    private static let sessionFallbackDefaultsKey = "ig_sessionid_fallback"
+    private static let installationTokenKey = "ig_installation_token_fallback"
+
     static func saveSessionId(_ sessionid: String) {
         let trimmed = sessionid.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
+        guard !trimmed.isEmpty else { return }
+        UserDefaults.standard.set(trimmed, forKey: sessionFallbackDefaultsKey)
+
+        guard let data = trimmed.data(using: .utf8) else { return }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: sessionKeyService,
@@ -73,7 +79,7 @@ class APIClient: ObservableObject {
         var attributes = query
         attributes[kSecValueData as String] = data
         attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(attributes as CFDictionary, nil)
+        _ = SecItemAdd(attributes as CFDictionary, nil)
     }
 
     static func loadSavedSessionId() -> String? {
@@ -88,12 +94,13 @@ class APIClient: ObservableObject {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecSuccess, let data = item as? Data, let sid = String(data: data, encoding: .utf8) {
             let trimmed = sid.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
+            if !trimmed.isEmpty { return trimmed }
         }
-        return nil
+        return UserDefaults.standard.string(forKey: sessionFallbackDefaultsKey)
     }
 
     static func deleteSavedSessionId() {
+        UserDefaults.standard.removeObject(forKey: sessionFallbackDefaultsKey)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: sessionKeyService,
@@ -239,21 +246,25 @@ class APIClient: ObservableObject {
         let result = SecItemCopyMatching(read as CFDictionary, &item)
         if result == errSecSuccess, let data = item as? Data,
            let token = String(data: data, encoding: .utf8) {
+            UserDefaults.standard.set(token, forKey: installationTokenKey)
             return token
         }
-        guard result == errSecItemNotFound else { throw URLError(.userAuthenticationRequired) }
+        if let stored = UserDefaults.standard.string(forKey: installationTokenKey), !stored.isEmpty {
+            return stored
+        }
         var bytes = [UInt8](repeating: 0, count: 32)
-        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
-            throw URLError(.userAuthenticationRequired)
+        let generatedToken: String
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess {
+            generatedToken = bytes.map { String(format: "%02x", $0) }.joined()
+        } else {
+            generatedToken = UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
-        let token = bytes.map { String(format: "%02x", $0) }.joined()
         var add = query
-        add[kSecValueData as String] = Data(token.utf8)
+        add[kSecValueData as String] = Data(generatedToken.utf8)
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        guard SecItemAdd(add as CFDictionary, nil) == errSecSuccess else {
-            throw URLError(.userAuthenticationRequired)
-        }
-        return token
+        _ = SecItemAdd(add as CFDictionary, nil)
+        UserDefaults.standard.set(generatedToken, forKey: installationTokenKey)
+        return generatedToken
     }
 
     private func requestData(for request: URLRequest) async throws -> (Data, URLResponse) {
@@ -263,6 +274,18 @@ class APIClient: ObservableObject {
         }
         var authenticated = request
         authenticated.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let sid = Self.loadSavedSessionId(), !sid.isEmpty {
+            authenticated.setValue(sid, forHTTPHeaderField: "X-Instagram-Session")
+            if let originalURL = authenticated.url,
+               var comps = URLComponents(url: originalURL, resolvingAgainstBaseURL: false) {
+                var items = comps.queryItems ?? []
+                if !items.contains(where: { $0.name == "sessionid" }) {
+                    items.append(URLQueryItem(name: "sessionid", value: sid))
+                    comps.queryItems = items
+                    authenticated.url = comps.url
+                }
+            }
+        }
         authenticated.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         // A sleeping cloud container needs time to start.
         authenticated.timeoutInterval = 90
@@ -672,5 +695,76 @@ class APIClient: ObservableObject {
                 self.errorMessage = "Error al guardar en Fotos: \(error.localizedDescription)"
             }
         }
+    }
+
+    // MARK: - Conexión Directa en la Nube y Diagnóstico
+    func pingCloudServers() async -> (gateway: Bool, backend: Bool, latencyMs: Int, message: String) {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        guard let healthURL = URL(string: "\(APIClient.cloudWorkerURL)/cloud-health") else {
+            return (false, false, 0, "URL del servidor no válida")
+        }
+        var gwOk = false
+        var beOk = false
+        var latency = 0
+        do {
+            var req = URLRequest(url: healthURL)
+            req.timeoutInterval = 10
+            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+                gwOk = true
+                latency = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let beStatus = json["backend"] as? String {
+                        beOk = (beStatus == "online")
+                    } else if let origin = json["origin"] as? [String: Any], let ready = origin["ready"] as? Bool {
+                        beOk = ready
+                    }
+                }
+            }
+        } catch {
+            print("[CloudHealth] Ping falló: \(error)")
+        }
+
+        if !beOk {
+            if let statusURL = URL(string: "\(APIClient.cloudWorkerURL)/api/status") {
+                do {
+                    _ = try await self.requestData(for: URLRequest(url: statusURL))
+                    beOk = true
+                    latency = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+                } catch {
+                    print("[StatusCheck] Fallback status falló: \(error)")
+                }
+            }
+        }
+
+        let msg = (gwOk && beOk)
+            ? "Servidores en la nube conectados y activos (\(latency) ms)"
+            : (gwOk ? "Gateway conectado, activando servidor en la nube..." : "No se pudo conectar a los servidores en la nube")
+        return (gwOk, beOk, latency, msg)
+    }
+
+    func loginWithCredentials(username: String, password: String, verificationCode: String? = nil) async throws -> String {
+        let payload = LoginPayload(
+            username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+            password: password,
+            verification_code: (verificationCode?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : verificationCode?.trimmingCharacters(in: .whitespacesAndNewlines),
+            sessionid: nil
+        )
+        return try await login(payload: payload)
+    }
+
+    func connectWithSessionId(_ sessionId: String) async throws -> String {
+        let cleanSid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanSid.isEmpty else {
+            throw NSError(domain: "IGSaver", code: 400, userInfo: [NSLocalizedDescriptionKey: "Pega una cookie sessionid válida."])
+        }
+        let payload = LoginPayload(
+            username: nil,
+            password: nil,
+            verification_code: nil,
+            sessionid: cleanSid
+        )
+        return try await login(payload: payload)
     }
 }
