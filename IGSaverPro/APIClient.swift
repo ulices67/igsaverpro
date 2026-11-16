@@ -127,10 +127,26 @@ class APIClient: ObservableObject {
         UserDefaults.standard.removeObject(forKey: sessionStatusDefaultsKey)
     }
 
+    // MARK: - Helpers de Identidad
+    static func isPlaceholderUsername(_ name: String?) -> Bool {
+        guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return true }
+        if name.hasPrefix("user_") {
+            let suffix = name.dropFirst(5)
+            return !suffix.isEmpty && suffix.allSatisfy(\.isNumber)
+        }
+        return false
+    }
+
+    static func extractUserId(fromSessionId sid: String) -> String? {
+        let decoded = sid.removingPercentEncoding ?? sid
+        let prefix = decoded.prefix(while: \.isNumber)
+        return prefix.isEmpty ? nil : String(prefix)
+    }
+
     // MARK: - Multi-Cuenta (Cuentas Guardadas)
     static func loadSavedAccounts() -> [SavedLoginAccount] {
         guard let data = UserDefaults.standard.data(forKey: savedAccountsDefaultsKey),
-              let list = try? JSONDecoder().decode([SavedLoginAccount].self, from: data) else {
+              var list = try? JSONDecoder().decode([SavedLoginAccount].self, from: data) else {
             // Migración automática si ya existía sesión en Keychain
             if let sid = loadSavedSessionId(), let cached = loadCachedSessionStatus(), let uname = cached.username, cached.logged_in {
                 let first = SavedLoginAccount(
@@ -145,6 +161,21 @@ class APIClient: ObservableObject {
             }
             return []
         }
+        // Limpiar cuentas placeholder (user_<digits>) si existe la cuenta real con el mismo user ID
+        let realUserIds = Set(list.compactMap { acc -> String? in
+            guard !isPlaceholderUsername(acc.username) else { return nil }
+            return extractUserId(fromSessionId: acc.sessionid)
+        })
+        let cleaned = list.filter { acc in
+            if isPlaceholderUsername(acc.username), let uid = extractUserId(fromSessionId: acc.sessionid), realUserIds.contains(uid) {
+                return false
+            }
+            return true
+        }
+        if cleaned.count != list.count {
+            list = cleaned
+            saveSavedAccounts(list)
+        }
         return list
     }
 
@@ -157,6 +188,31 @@ class APIClient: ObservableObject {
     func addOrUpdateSavedAccount(username: String, sessionid: String, fullName: String = "", profilePic: String = "") {
         var list = Self.loadSavedAccounts()
         let cleanUname = username.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "@", with: "")
+        let incomingUid = Self.extractUserId(fromSessionId: sessionid)
+
+        // Si el username recibido es placeholder (user_12345) y ya existe una cuenta real para este uid, no la sobrescribimos ni duplicamos
+        if Self.isPlaceholderUsername(cleanUname), let uid = incomingUid,
+           let existingRealIdx = list.firstIndex(where: { !Self.isPlaceholderUsername($0.username) && Self.extractUserId(fromSessionId: $0.sessionid) == uid }) {
+            let existing = list[existingRealIdx]
+            list[existingRealIdx] = SavedLoginAccount(
+                username: existing.username,
+                sessionid: sessionid,
+                full_name: existing.full_name,
+                profile_pic_url: profilePic.isEmpty ? existing.profile_pic_url : profilePic,
+                dateAdded: Date()
+            )
+            Self.saveSavedAccounts(list)
+            DispatchQueue.main.async {
+                self.savedAccounts = list
+            }
+            return
+        }
+
+        // Si llega una cuenta real, eliminamos cualquier placeholder antiguo para ese mismo uid
+        if !Self.isPlaceholderUsername(cleanUname), let uid = incomingUid {
+            list.removeAll { Self.isPlaceholderUsername($0.username) && Self.extractUserId(fromSessionId: $0.sessionid) == uid }
+        }
+
         let finalFullName = fullName.isEmpty ? cleanUname : fullName
 
         if let idx = list.firstIndex(where: { $0.id == cleanUname.lowercased() }) {
@@ -187,6 +243,8 @@ class APIClient: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
+        profileCache.removeAll()
+
         // 1. Cambio visual optimista instantáneo (0ms)
         let updatedStatus = SessionStatus(
             logged_in: true,
@@ -207,13 +265,20 @@ class APIClient: ObservableObject {
         Self.saveSavedAccounts(list)
         self.savedAccounts = list
 
-        // 3. Sincronizar backend con la sesión
+        // 3. Sincronizar backend con la sesión enviando el username conocido para evitar fallback user_...
         do {
-            let payload = LoginPayload(username: nil, password: nil, verification_code: nil, sessionid: account.sessionid)
+            let payload = LoginPayload(
+                username: Self.isPlaceholderUsername(account.username) ? nil : account.username,
+                password: nil,
+                verification_code: nil,
+                sessionid: account.sessionid
+            )
             _ = try await login(payload: payload)
-            toastMessage = "✅ Conectado a @\(account.username)"
+            let activeName = Self.isPlaceholderUsername(self.sessionStatus.username) ? account.username : (self.sessionStatus.username ?? account.username)
+            toastMessage = "✅ Conectado a @\(activeName)"
         } catch {
-            errorMessage = "No se pudo cambiar a @\(account.username): \(error.localizedDescription)"
+            // Mantenemos la sesión local seleccionada para que las siguientes peticiones usen X-Instagram-Session
+            toastMessage = "✅ Cambiado a @\(account.username)"
         }
     }
 
@@ -274,7 +339,9 @@ class APIClient: ObservableObject {
         }
         var authenticated = request
         authenticated.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        if let sid = Self.loadSavedSessionId(), !sid.isEmpty {
+        let reqPath = authenticated.url?.path ?? ""
+        let isAuthMutation = reqPath.hasSuffix("/api/login") || reqPath.hasSuffix("/api/logout")
+        if !isAuthMutation, let sid = Self.loadSavedSessionId(), !sid.isEmpty {
             authenticated.setValue(sid, forHTTPHeaderField: "X-Instagram-Session")
             if let originalURL = authenticated.url,
                var comps = URLComponents(url: originalURL, resolvingAgainstBaseURL: false) {
@@ -332,8 +399,17 @@ class APIClient: ObservableObject {
             let (data, _) = try await requestData(for: URLRequest(url: url))
             let status = try JSONDecoder().decode(SessionStatus.self, from: data)
             if status.logged_in {
-                self.sessionStatus = status
-                Self.saveCachedSessionStatus(status)
+                var resolvedStatus = status
+                if Self.isPlaceholderUsername(status.username) {
+                    if let current = self.sessionStatus.username, !Self.isPlaceholderUsername(current) {
+                        resolvedStatus = SessionStatus(logged_in: true, user_id: status.user_id, username: current, session_file_exists: status.session_file_exists)
+                    } else if let sid = Self.loadSavedSessionId(), let uid = Self.extractUserId(fromSessionId: sid),
+                              let match = self.savedAccounts.first(where: { !Self.isPlaceholderUsername($0.username) && Self.extractUserId(fromSessionId: $0.sessionid) == uid }) {
+                        resolvedStatus = SessionStatus(logged_in: true, user_id: status.user_id, username: match.username, session_file_exists: status.session_file_exists)
+                    }
+                }
+                self.sessionStatus = resolvedStatus
+                Self.saveCachedSessionStatus(resolvedStatus)
                 self.isServiceAvailable = true
             } else if let savedSid = Self.loadSavedSessionId(), !savedSid.isEmpty {
                 // El contenedor en la nube se reinició o despertó en frío.
@@ -406,9 +482,24 @@ class APIClient: ObservableObject {
         }
 
         let sid = payload.sessionid ?? decoded.sessionid ?? ""
-        let uname = decoded.username ?? sessionStatus.username ?? "usuario"
-        let fullName = decoded.full_name ?? uname
-        let profilePic = decoded.profile_pic_url ?? ""
+        let matchedSavedAccount: SavedLoginAccount? = {
+            guard !sid.isEmpty, let uid = Self.extractUserId(fromSessionId: sid) else { return nil }
+            return Self.loadSavedAccounts().first { !Self.isPlaceholderUsername($0.username) && Self.extractUserId(fromSessionId: $0.sessionid) == uid }
+        }()
+        let uname: String
+        if let serverName = decoded.username, !Self.isPlaceholderUsername(serverName) {
+            uname = serverName
+        } else if let reqName = payload.username?.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "@", with: ""), !reqName.isEmpty, !Self.isPlaceholderUsername(reqName) {
+            uname = reqName
+        } else if let saved = matchedSavedAccount {
+            uname = saved.username
+        } else if let cur = sessionStatus.username, !Self.isPlaceholderUsername(cur) {
+            uname = cur
+        } else {
+            uname = decoded.username ?? "usuario"
+        }
+        let fullName = (!Self.isPlaceholderUsername(decoded.full_name) ? decoded.full_name : nil) ?? matchedSavedAccount?.full_name ?? uname
+        let profilePic = (decoded.profile_pic_url?.isEmpty == false ? decoded.profile_pic_url : nil) ?? matchedSavedAccount?.profile_pic_url ?? ""
 
         if !sid.isEmpty {
             Self.saveSessionId(sid)

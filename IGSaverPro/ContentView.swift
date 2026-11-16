@@ -1753,7 +1753,7 @@ struct InstagramWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = WKWebsiteDataStore.default()
+        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
@@ -1828,6 +1828,15 @@ struct InstagramWebView: UIViewRepresentable {
             }
         }
 
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if let scheme = navigationAction.request.url?.scheme?.lowercased(),
+               scheme != "http" && scheme != "https" && scheme != "about" && scheme != "blob" && scheme != "data" {
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
+        }
+
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil {
                 webView.load(navigationAction.request)
@@ -1856,7 +1865,7 @@ struct InstagramWebView: UIViewRepresentable {
                     }
                 }
 
-                if let sid = foundSessionId, (foundUserId != nil || sid.contains("%3A") || sid.contains(":")) {
+                if let sid = foundSessionId, sid.count > 10, (foundUserId != nil || sid.contains("%3A") || sid.contains(":")) {
                     self.captured = true
                     DispatchQueue.main.async {
                         self.parent.onSessionCaptured?(sid)
@@ -1946,11 +1955,7 @@ struct LoginSheetView: View {
                 }
             }
             .onAppear {
-                if !hasAccounts {
-                    InstagramWebView.clearWebCookies {
-                        webViewID = UUID()
-                    }
-                }
+                statusFeedback = ""
             }
         }
     }
@@ -2654,7 +2659,6 @@ struct LoginSheetView: View {
             } catch {
                 isSubmitting = false
                 statusFeedback = "❌ \(error.localizedDescription)"
-                webViewID = UUID()
             }
         }
     }
