@@ -177,9 +177,18 @@ struct ContentView: View {
                         .foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("IG Saver Pro")
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundColor(.white)
+                    HStack(spacing: 6) {
+                        Text("IG Saver Pro")
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundColor(.white)
+                        Text("V3.1")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundColor(.white.opacity(0.9))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.14))
+                            .clipShape(Capsule())
+                    }
                     Text("Buscador · Destacadas · Historias Anónimas")
                         .font(.system(size: 11))
                         .foregroundColor(.gray)

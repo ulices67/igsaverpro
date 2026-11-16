@@ -360,7 +360,7 @@ class APIClient: ObservableObject {
             let result = try await URLSession.shared.data(for: authenticated)
             guard let response = result.1 as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if !(200..<300).contains(response.statusCode) {
-                if response.statusCode >= 500 { isServiceAvailable = false }
+                if response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504 { isServiceAvailable = false }
                 let detail = (try? JSONDecoder().decode(LoginResponse.self, from: result.0))?.detail
                 let message = (detail != nil && !detail!.isEmpty)
                     ? detail!
