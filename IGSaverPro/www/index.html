@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="referrer" content="no-referrer" />
-  <title>IG Saver Pro</title>
+  <title>IG Saver Pro V3.1</title>
 
   <!-- PWA & iOS Native Meta Tags -->
   <link rel="manifest" href="/manifest.json" />
@@ -19,7 +19,7 @@
     :root {
       --bg: #0b0b10;
       --surface: #15151f;
-      --surface-glass: rgba(25, 25, 36, 0.88);
+      --surface-glass: rgba(21, 21, 31, 0.88);
       --border: rgba(255, 255, 255, 0.09);
       --text: #f5f5f7;
       --muted: #8e8e9e;
@@ -91,11 +91,26 @@
       font-size: 1.15rem;
       font-weight: 700;
       letter-spacing: -0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .v3-badge {
+      font-size: 0.65rem;
+      background: linear-gradient(135deg, rgba(255, 45, 85, 0.3), rgba(175, 82, 222, 0.3));
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #ffffff;
     }
 
     .brand-text p {
       font-size: 0.72rem;
       color: var(--muted);
+      margin-top: 1px;
     }
 
     .status-pill {
@@ -104,12 +119,16 @@
       gap: 6px;
       background: var(--surface-glass);
       backdrop-filter: blur(12px);
-      padding: 7px 13px;
+      padding: 7px 12px;
       border-radius: 999px;
       border: 1px solid var(--border);
       font-size: 0.76rem;
       font-weight: 600;
       cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .status-pill:active {
+      background: rgba(255, 255, 255, 0.12);
     }
 
     .status-dot {
@@ -117,37 +136,29 @@
       height: 8px;
       border-radius: 50%;
       background: #e67e22;
+      flex-shrink: 0;
     }
     .status-dot.active {
       background: var(--success);
       box-shadow: 0 0 8px var(--success);
     }
+    .status-chevron {
+      width: 14px;
+      height: 14px;
+      fill: var(--muted);
+    }
 
-    /* Tarjeta Principal */
+    /* Tarjeta Principal del Buscador */
     .card {
       background: var(--surface-glass);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--border);
       border-radius: 22px;
-      padding: 18px;
+      padding: 16px;
       margin-bottom: 14px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
       position: relative;
-    }
-
-    .anon-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(52, 199, 89, 0.12);
-      color: #4cd964;
-      border: 1px solid rgba(52, 199, 89, 0.3);
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      margin-bottom: 10px;
     }
 
     .input-box {
@@ -160,7 +171,7 @@
       background: #101017;
       border: 1px solid var(--border);
       border-radius: 15px;
-      padding: 15px 72px 15px 15px;
+      padding: 14px 72px 14px 14px;
       color: white;
       font-size: 0.94rem;
       outline: none;
@@ -291,7 +302,7 @@
       border-radius: 6px;
     }
 
-    /* ==================== SECCIÓN DE FAVORITOS Y RECIENTES ==================== */
+    /* Carrusel de Favoritos y Recientes */
     .quick-section {
       margin-bottom: 14px;
     }
@@ -737,26 +748,28 @@
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.78);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       z-index: 200;
       align-items: flex-end;
     }
     .sheet.active { display: flex; }
     .sheet-content {
-      background: #181822;
-      border-top-left-radius: 24px;
-      border-top-right-radius: 24px;
-      padding: 22px 18px calc(var(--safe-bottom) + 18px) 18px;
+      background: #181824;
+      border-top-left-radius: 26px;
+      border-top-right-radius: 26px;
+      padding: 20px 18px calc(var(--safe-bottom) + 18px) 18px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
       border-top: 1px solid var(--border);
     }
-    .sheet-content h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .sheet-content h3 { font-size: 1.15rem; margin-bottom: 4px; font-weight: 700; }
     .sheet-content p { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
+    
     .sheet-input {
       width: 100%;
-      background: #101017;
+      background: #101018;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 13px;
@@ -783,6 +796,7 @@
       font-weight: 600;
       cursor: pointer;
       text-align: center;
+      transition: all 0.15s;
     }
     .login-tab.active {
       background: rgba(225, 48, 108, 0.18);
@@ -790,39 +804,282 @@
       color: white;
     }
 
-    /* Tarjeta Descarga Formato IPA */
-    .ipa-box {
-      background: rgba(225, 48, 108, 0.08);
-      border: 1px solid rgba(225, 48, 108, 0.28);
-      border-radius: 18px;
-      padding: 15px;
-      margin-top: auto;
-    }
-    .ipa-box h4 { font-size: 0.9rem; margin-bottom: 4px; color: #ff85ad; }
-    .ipa-box p { font-size: 0.76rem; color: var(--muted); margin-bottom: 12px; }
-    .ipa-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .btn-ipa {
-      background: #1f1f2e;
-      border: 1px solid var(--border);
-      color: white;
-      text-decoration: none;
-      padding: 10px;
-      border-radius: 11px;
-      font-size: 0.78rem;
-      font-weight: 600;
+    /* Multi-Account Manager Styles */
+    .account-hero-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
+      margin-bottom: 14px;
+    }
+    .account-hero-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--ig-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      box-shadow: 0 4px 16px rgba(225, 48, 108, 0.4);
+    }
+    .account-hero-icon svg {
+      width: 26px;
+      height: 26px;
+      fill: white;
+    }
+
+    .cloud-health-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 9px 12px;
+      margin-bottom: 14px;
+      font-size: 0.76rem;
+    }
+    .cloud-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34c759;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px #34c759;
+    }
+    .cloud-dot.offline {
+      background: #ff3b30;
+      box-shadow: 0 0 6px #ff3b30;
+    }
+    .cloud-latency-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #34c759;
+      background: rgba(52, 199, 89, 0.16);
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-left: auto;
+    }
+    .btn-ping-cloud {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      color: white;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .account-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .account-row:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .account-row.active {
+      background: rgba(52, 199, 89, 0.08);
+      border-color: rgba(52, 199, 89, 0.4);
+    }
+    .account-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 2px solid var(--border);
+    }
+    .account-avatar.active-ring {
+      border-color: #34c759;
+    }
+    .account-avatar-fallback {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--ig-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: white;
+      flex-shrink: 0;
+    }
+    .account-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .account-username-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .account-uname {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: white;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .badge-active-pill {
+      font-size: 0.62rem;
+      font-weight: 800;
+      background: rgba(52, 199, 89, 0.2);
+      color: #34c759;
+      padding: 2px 6px;
+      border-radius: 999px;
+      letter-spacing: 0.4px;
+    }
+    .account-sub {
+      font-size: 0.74rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .btn-switch-account {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      color: white;
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .btn-switch-account:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .btn-trash-account {
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-trash-account:active {
+      color: #ff6b6b;
+    }
+
+    .btn-add-account-outline {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px dashed rgba(255, 255, 255, 0.25);
+      color: white;
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      cursor: pointer;
+      margin-bottom: 14px;
     }
-    .btn-ipa.primary { background: var(--ig-gradient); border: none; }
+    .btn-add-account-outline:active {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .modal-header-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .btn-modal-back {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px 8px;
+      margin-left: -8px;
+    }
+
+    /* Tarjetas de Medios */
+    .media-card {
+      background: var(--surface-glass);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .media-preview {
+      width: 100%;
+      max-height: 480px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .media-preview img, .media-preview video {
+      width: 100%;
+      max-height: 480px;
+      object-fit: contain;
+    }
+    .media-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .btn-save-photos {
+      width: 100%;
+      background: #252538;
+      color: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn-save-photos:active { background: #32324a; }
 
     /* Spinner */
     .spinner {
       display: inline-block;
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border: 2.5px solid rgba(255, 255, 255, 0.25);
       border-radius: 50%;
       border-top-color: #ff7597;
@@ -830,22 +1087,26 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
+
   <script>
-    // Soporte transparente para autorización y token de instalación web
+    // Interceptor transparente: inyecta Bearer Token y X-Instagram-Session activo
     (function() {
       const _origFetch = window.fetch;
       window.fetch = function(url, init) {
         init = init || {};
         init.headers = init.headers || {};
         const token = window.__IG_WEB_TOKEN__ || localStorage.getItem('ig_web_token');
-        if (token) {
-          if (init.headers instanceof Headers) {
-            if (!init.headers.has('Authorization')) init.headers.set('Authorization', 'Bearer ' + token);
-          } else if (Array.isArray(init.headers)) {
-            init.headers.push(['Authorization', 'Bearer ' + token]);
-          } else {
-            init.headers['Authorization'] = init.headers['Authorization'] || ('Bearer ' + token);
-          }
+        const sid = localStorage.getItem('ig_sessionid');
+
+        if (init.headers instanceof Headers) {
+          if (token && !init.headers.has('Authorization')) init.headers.set('Authorization', 'Bearer ' + token);
+          if (sid && !init.headers.has('X-Instagram-Session')) init.headers.set('X-Instagram-Session', sid);
+        } else if (Array.isArray(init.headers)) {
+          if (token) init.headers.push(['Authorization', 'Bearer ' + token]);
+          if (sid) init.headers.push(['X-Instagram-Session', sid]);
+        } else {
+          if (token && !init.headers['Authorization']) init.headers['Authorization'] = 'Bearer ' + token;
+          if (sid && !init.headers['X-Instagram-Session']) init.headers['X-Instagram-Session'] = sid;
         }
         return _origFetch.call(this, url, init);
       };
@@ -864,20 +1125,20 @@
         <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
       </div>
       <div class="brand-text">
-        <h1 style="display:inline-flex; align-items:center; gap:6px;">IG Saver Pro <span style="font-size:0.65rem; background:rgba(255,255,255,0.15); padding:2px 6px; border-radius:10px; font-weight:800; letter-spacing:0.5px;">V3.1</span></h1>
-        <p>Buscador · Destacadas · Historias Anónimas</p>
+        <h1>IG Saver Pro <span class="v3-badge">V3.1</span></h1>
+        <p>Buscador • Destacadas • Historias Anónimas</p>
       </div>
     </div>
 
-    <div class="status-pill" onclick="openLoginSheet()">
+    <div class="status-pill" id="headerStatusPill" onclick="openAccountsModal()">
       <div id="statusDot" class="status-dot"></div>
       <span id="statusLabel">Sesión</span>
+      <svg class="status-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
     </div>
   </header>
 
   <!-- Buscador Principal -->
   <div class="card">
-    <div class="anon-badge">🕵️‍♂️ Modo 100% Anónimo — No apareces en vistos</div>
     <div class="input-box">
       <input
         type="text"
@@ -901,7 +1162,7 @@
       </button>
     </div>
 
-    <!-- Lista desplegable de sugerencias de búsqueda en vivo -->
+    <!-- Sugerencias de búsqueda en vivo -->
     <div id="searchDropdown" class="search-dropdown"></div>
   </div>
 
@@ -913,7 +1174,7 @@
     <div class="quick-tray" id="favoritesTray"></div>
   </div>
 
-  <!-- Carrusel de Cuentas Recientes (🕒) -->
+  <!-- Carrusel de Búsquedas Recientes (🕒) -->
   <div class="quick-section" id="recentSection" style="display:none;">
     <div class="quick-section-title">
       <span>🕒 Búsquedas Recientes</span>
@@ -925,24 +1186,14 @@
   <!-- Contenedor Dinámico de Perfil o Medios -->
   <div id="results" class="results-container"></div>
 
-  <!-- Sección Instalación IPA & Perfil Nativo iOS -->
-  <div class="ipa-box" id="ipaSection">
-    <h4>📲 Instalar App en tu iPhone (Formato IPA / Nativo)</h4>
-    <p>Descarga el archivo <strong>.ipa</strong> o instala directamente el <strong>Perfil de App Nativa iOS</strong> con un toque.</p>
-    <div class="ipa-buttons">
-      <a href="/download/IGSaverPro.ipa" class="btn-ipa primary" download="IGSaverPro.ipa">📦 Descargar .IPA</a>
-      <a href="/install.mobileconfig" class="btn-ipa">⚡ Instalar App Directa</a>
-    </div>
-  </div>
-
-  <!-- ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ROBUSTO ==================== -->
+  <!-- ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ==================== -->
   <div class="story-viewer-modal" id="storyViewer">
     <div>
       <div class="story-progress-bars" id="storyProgressBars"></div>
       <div class="story-top-bar">
         <div class="story-user-meta">
           <strong id="storyHeaderTitle">@usuario</strong>
-          <small id="storyHeaderSub">🕵️‍♂️ Viendo de forma 100% anónima</small>
+          <small id="storyHeaderSub">🔒 Viendo de forma 100% anónima</small>
         </div>
         <div class="top-controls-group">
           <button id="btnSoundToggle" class="btn-sound-toggle" onclick="toggleStorySound()">🔇</button>
@@ -951,10 +1202,10 @@
       </div>
     </div>
 
-    <div class="story-stage" id="storyStage">
+    <div class="story-stage">
       <div class="story-nav-left" onclick="prevStorySlide()"></div>
-      <div id="storyMediaHolder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
       <div class="story-nav-right" onclick="nextStorySlide()"></div>
+      <div id="storyMediaHolder" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;"></div>
     </div>
 
     <div class="story-bottom-bar">
@@ -965,30 +1216,28 @@
     </div>
   </div>
 
-  <!-- ==================== MODAL DE HISTORIA DESTACADA ==================== -->
+  <!-- ==================== EXPLORADOR DE DESTACADAS ==================== -->
   <div class="sheet" id="highlightModal" onclick="closeHighlightModal()">
     <div class="sheet-content" onclick="event.stopPropagation()">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div>
-          <h3 id="hlModalTitle">✨ Destacada</h3>
+          <h3 id="hlModalTitle">Historias Destacadas</h3>
           <small id="hlModalCount" style="color:var(--muted)">0 historias</small>
         </div>
         <button class="btn-close-story" onclick="closeHighlightModal()">✕</button>
       </div>
 
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:12px;">
-        <button class="btn-secondary story-active" onclick="playCurrentHighlightStories()">
-          ▶ Ver una por una
-        </button>
-        <button id="btnToggleSelectAllHl" class="btn-secondary" onclick="toggleSelectAllHighlightItems()">
-          ✓ Seleccionar todas
-        </button>
-      </div>
+      <button class="btn-main" style="margin-bottom:14px;" onclick="playCurrentHighlightStories()">
+        ▶️ Reproducir a Pantalla Completa
+      </button>
 
       <div class="selection-bar">
-        <span id="hlSelectedCountLabel" style="font-size:0.84rem; color:var(--text); font-weight:600;">0 seleccionadas</span>
-        <button id="btnDownloadSelectedHl" class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="downloadSelectedHighlightItems()">
-          ⬇️ Descargar selección
+        <div class="checkbox-wrap" onclick="toggleSelectAllHighlightItems()">
+          <span id="btnToggleSelectAllHl">✓ Seleccionar todas</span>
+        </div>
+        <span id="hlSelectedCountLabel" style="font-size:0.8rem; color:var(--muted)">0 seleccionadas</span>
+        <button id="btnDownloadSelectedHl" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="downloadSelectedHighlightItems()">
+          💾 Guardar
         </button>
       </div>
 
@@ -1013,7 +1262,7 @@
           <span id="postSelectedCountLabel">Seleccionar todas</span>
         </div>
         <button id="btnDownloadSelectedPost" class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="downloadSelectedPostItems()">
-          ⬇️ Guardar selección
+          💾 Guardar selección
         </button>
       </div>
 
@@ -1021,33 +1270,96 @@
     </div>
   </div>
 
-  <!-- Modal para Iniciar / Cambiar Sesión -->
-  <div class="sheet" id="loginSheet" onclick="closeLoginSheet()">
+  <!-- ==================== MODAL MULTI-CUENTA Y CONEXIÓN EN LA NUBE ==================== -->
+  <div class="sheet" id="accountsModal" onclick="closeAccountsModal()">
     <div class="sheet-content" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <h3>Sesión de Instagram</h3>
-        <button class="btn-close-story" onclick="closeLoginSheet()">✕</button>
-      </div>
-      <p id="currentSessionBanner">Permite buscar cuentas y ver historias/destacadas privadas de forma anónima.</p>
 
-      <div class="login-tabs">
-        <div id="tabCreds" class="login-tab active" onclick="switchLoginTab('creds')">🔑 Usuario y Clave</div>
-        <div id="tabCookie" class="login-tab" onclick="switchLoginTab('cookie')">🍪 Cookie sessionid</div>
+      <!-- VISTA 1: GESTIÓN DE CUENTAS GUARDADAS ("Mis Cuentas") -->
+      <div id="viewAccountsList">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
+          <button class="btn-close-story" onclick="closeAccountsModal()">✕</button>
+        </div>
+
+        <div class="account-hero-header">
+          <div class="account-hero-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h3>Cuentas de Instagram</h3>
+          <p>Toca cualquier cuenta para cambiar al instante sin volver a iniciar sesión.</p>
+        </div>
+
+        <!-- Diagnóstico de servidores en la nube -->
+        <div class="cloud-health-box">
+          <div id="cloudDot" class="cloud-dot"></div>
+          <span style="font-weight:600;">Servidores en la Nube Activos</span>
+          <span id="cloudLatencyBadge" class="cloud-latency-badge">Listo</span>
+          <button class="btn-ping-cloud" onclick="pingCloudServer()" title="Verificar conexión">
+            <svg id="pingIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          </button>
+        </div>
+
+        <!-- Lista de Cuentas Guardadas -->
+        <div id="savedAccountsContainer" class="accounts-list"></div>
+
+        <!-- Botón Añadir Otra Cuenta -->
+        <button class="btn-add-account-outline" onclick="showAddAccountView()">
+          <span>+ Añadir otra cuenta de Instagram</span>
+        </button>
+
+        <!-- Botones de Acción -->
+        <button class="btn-main" style="margin-bottom:10px;" onclick="closeAccountsModal()">
+          <span>Listo • Volver a la App</span>
+        </button>
+        <button class="btn-secondary" style="width:100%; border:none; color:#ff6b6b; font-size:0.8rem;" onclick="logoutAllAccounts()">
+          Cerrar todas las sesiones
+        </button>
       </div>
 
-      <div id="formCreds">
-        <input type="text" id="userInput" class="sheet-input" placeholder="Usuario de Instagram" autocomplete="username" />
-        <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña" autocomplete="current-password" />
-        <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA de 6 dígitos (Si tienes 2FA)" inputmode="numeric" />
+      <!-- VISTA 2: AÑADIR CUENTA / CONEXIÓN EN LA NUBE -->
+      <div id="viewAddAccount" style="display:none;">
+        <div class="modal-header-nav">
+          <button id="btnBackToAccounts" class="btn-modal-back" onclick="showAccountsListView()">
+            <span>‹ Cuentas</span>
+          </button>
+          <span style="font-weight:700; font-size:1rem;">Añadir Cuenta</span>
+          <button class="btn-close-story" onclick="closeAccountsModal()">✕</button>
+        </div>
+
+        <p style="text-align:center; font-size:0.82rem; color:var(--muted); margin-bottom:14px;">
+          Conecta en la nube para buscar perfiles y ver destacadas e historias privadas.
+        </p>
+
+        <!-- Selector de Método -->
+        <div class="login-tabs">
+          <div id="tabCreds" class="login-tab active" onclick="switchLoginMethod('creds')">☁️ En la Nube</div>
+          <div id="tabCookie" class="login-tab" onclick="switchLoginMethod('cookie')">🔑 Cookie sessionid</div>
+        </div>
+
+        <!-- Formulario: Usuario y Contraseña -->
+        <div id="formCreds">
+          <input type="text" id="userInput" class="sheet-input" placeholder="@usuario_de_instagram" autocomplete="username" />
+          <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña de Instagram" autocomplete="current-password" />
+          <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA de 6 dígitos (Si tienes 2FA)" inputmode="numeric" />
+        </div>
+
+        <!-- Formulario: Cookie sessionid -->
+        <div id="formCookie" style="display:none;">
+          <div style="position:relative;">
+            <input type="text" id="sessionidInput" class="sheet-input" style="padding-right:70px;" placeholder="Pega aquí tu cookie sessionid..." />
+            <button class="btn-paste" style="top:22px;" onclick="pasteSessionId()">Pegar</button>
+          </div>
+          <p style="font-size:0.74rem; color:var(--muted); line-height:1.35; margin-top:2px;">
+            Encuéntrala en Instagram Web &gt; F12 &gt; Application &gt; Cookies &gt; sessionid.
+          </p>
+        </div>
+
+        <button id="btnSubmitLogin" class="btn-main" style="margin-top:8px" onclick="submitAccountConnection()">
+          <span>Conectar Cuenta en la Nube</span>
+        </button>
+
+        <div id="loginFeedback" style="font-size:0.84rem; margin-top:12px; text-align:center;"></div>
       </div>
 
-      <div id="formCookie" style="display:none;">
-        <input type="text" id="sessionidInput" class="sheet-input" placeholder="Pega aquí tu cookie sessionid..." />
-      </div>
-
-      <button id="btnSubmitLogin" class="btn-main" style="margin-top:6px" onclick="submitLogin()">Conectar Cuenta</button>
-      <button id="btnLogout" class="btn-secondary" style="width:100%; margin-top:8px; display:none; color:#ff6b6b;" onclick="logoutSession()">Cerrar Sesión Actual</button>
-      <div id="loginFeedback" style="font-size:0.84rem; margin-top:10px; text-align:center;"></div>
     </div>
   </div>
 
@@ -1057,7 +1369,7 @@
     let activeStoryIndex = 0;
     let activeStoryLabel = "";
     let isStoryMuted = true;
-    let loginMode = "creds";
+    let loginMethod = "creds";
     let searchDebounceTimer = null;
 
     let currentHighlightData = null;
@@ -1077,11 +1389,110 @@
       return `/api/proxy-file?file_url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(filename)}${tokenParam}`;
     }
 
-    /* ==================== ALMACENAMIENTO DE FAVORITOS Y RECIENTES ==================== */
-    function getFavorites() {
+    /* ==================== MULTI-CUENTA Y ALMACENAMIENTO LOCAL ==================== */
+    const SAVED_ACCOUNTS_KEY = 'ig_saved_login_accounts';
+
+    function isPlaceholderUsername(uname) {
+      if (!uname) return true;
+      return /^user_\d+$/i.test(uname.trim());
+    }
+
+    function extractUserId(sessionid) {
+      if (!sessionid) return null;
       try {
-        return JSON.parse(localStorage.getItem('ig_fav_accounts') || '[]');
-      } catch (e) { return []; }
+        const decoded = decodeURIComponent(sessionid);
+        const match = decoded.match(/^(\d+)/);
+        return match ? match[1] : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getSavedAccounts() {
+      try {
+        let list = JSON.parse(localStorage.getItem(SAVED_ACCOUNTS_KEY) || '[]');
+        if (!Array.isArray(list)) list = [];
+        
+        // Limpieza de placeholders user_... si existe cuenta real para el mismo UID
+        const realUids = new Set(list.filter(a => !isPlaceholderUsername(a.username)).map(a => extractUserId(a.sessionid)).filter(Boolean));
+        const filtered = list.filter(a => {
+          if (isPlaceholderUsername(a.username)) {
+            const uid = extractUserId(a.sessionid);
+            if (uid && realUids.has(uid)) return false;
+          }
+          return true;
+        });
+
+        if (filtered.length !== list.length) {
+          localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(filtered));
+          list = filtered;
+        }
+        return list;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveSavedAccounts(accounts) {
+      try {
+        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+      } catch (e) {}
+    }
+
+    function addOrUpdateSavedAccount(username, sessionid, fullName = "", profilePic = "") {
+      let list = getSavedAccounts();
+      const cleanUname = (username || '').trim().replace(/^@/, '');
+      const incomingUid = extractUserId(sessionid);
+
+      if (isPlaceholderUsername(cleanUname) && incomingUid) {
+        const existingIdx = list.findIndex(a => !isPlaceholderUsername(a.username) && extractUserId(a.sessionid) === incomingUid);
+        if (existingIdx >= 0) {
+          list[existingIdx].sessionid = sessionid;
+          if (profilePic) list[existingIdx].profile_pic_url = profilePic;
+          saveSavedAccounts(list);
+          return list[existingIdx];
+        }
+      }
+
+      if (!isPlaceholderUsername(cleanUname) && incomingUid) {
+        list = list.filter(a => !(isPlaceholderUsername(a.username) && extractUserId(a.sessionid) === incomingUid));
+      }
+
+      const existingIdx = list.findIndex(a => a.username.toLowerCase() === cleanUname.toLowerCase());
+      const accountData = {
+        id: cleanUname.toLowerCase(),
+        username: cleanUname,
+        sessionid: sessionid,
+        full_name: fullName || cleanUname,
+        profile_pic_url: profilePic || (existingIdx >= 0 ? list[existingIdx].profile_pic_url : ""),
+        dateAdded: Date.now()
+      };
+
+      if (existingIdx >= 0) {
+        list[existingIdx] = accountData;
+      } else {
+        list.unshift(accountData);
+      }
+
+      saveSavedAccounts(list);
+      return accountData;
+    }
+
+    function getActiveSessionId() {
+      return localStorage.getItem('ig_sessionid') || '';
+    }
+
+    function setActiveSessionId(sid) {
+      if (sid) {
+        localStorage.setItem('ig_sessionid', sid);
+      } else {
+        localStorage.removeItem('ig_sessionid');
+      }
+    }
+
+    /* ==================== FAVORITOS Y RECIENTES ==================== */
+    function getFavorites() {
+      try { return JSON.parse(localStorage.getItem('ig_fav_accounts') || '[]'); } catch (e) { return []; }
     }
 
     function saveFavorites(favs) {
@@ -1105,7 +1516,7 @@
           full_name: user.full_name,
           profile_pic: user.profile_pic_hd || user.profile_pic_url
         });
-        if (favs.length > 20) favs.pop();
+        if (favs.length > 25) favs.pop();
       }
       saveFavorites(favs);
       updateFavoriteButtonState(user.username);
@@ -1115,7 +1526,7 @@
       const btn = document.getElementById('btnToggleFav');
       if (!btn) return;
       const isFav = isAccountFavorite(username);
-      btn.innerHTML = isFav ? '★ En Favoritos' : '⭐ Añadir a Favoritos';
+      btn.innerHTML = isFav ? '⭐ En Favoritos' : '⭐ Añadir a Favoritos';
       btn.classList.toggle('btn-fav', isFav);
     }
 
@@ -1139,9 +1550,7 @@
     }
 
     function getRecents() {
-      try {
-        return JSON.parse(localStorage.getItem('ig_recent_searches') || '[]');
-      } catch (e) { return []; }
+      try { return JSON.parse(localStorage.getItem('ig_recent_searches') || '[]'); } catch (e) { return []; }
     }
 
     function addRecentSearch(user) {
@@ -1181,40 +1590,307 @@
       `).join('');
     }
 
+    /* ==================== ESTADO Y SALUD EN LA NUBE ==================== */
+    async function pingCloudServer() {
+      const badge = document.getElementById('cloudLatencyBadge');
+      const dot = document.getElementById('cloudDot');
+      const icon = document.getElementById('pingIcon');
+
+      if (badge) badge.textContent = 'Verificando...';
+      if (icon) icon.style.animation = 'spin 0.75s linear infinite';
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/cloud-health', { cache: 'no-store' });
+        const latency = Math.round(performance.now() - t0);
+        if (res.ok) {
+          if (dot) { dot.classList.remove('offline'); }
+          if (badge) {
+            badge.textContent = `${latency} ms`;
+            badge.style.color = '#34c759';
+            badge.style.background = 'rgba(52, 199, 89, 0.16)';
+          }
+        } else {
+          throw new Error('Servidor no disponible');
+        }
+      } catch (e) {
+        if (dot) dot.classList.add('offline');
+        if (badge) {
+          badge.textContent = 'Desconectado';
+          badge.style.color = '#ff6b6b';
+          badge.style.background = 'rgba(255, 107, 107, 0.16)';
+        }
+      } finally {
+        if (icon) icon.style.animation = 'none';
+      }
+    }
+
     async function checkStatus() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
         const dot = document.getElementById('statusDot');
         const label = document.getElementById('statusLabel');
-        const banner = document.getElementById('currentSessionBanner');
-        const logoutBtn = document.getElementById('btnLogout');
+
+        const savedAccounts = getSavedAccounts();
+        const activeSid = getActiveSessionId();
 
         if (data.logged_in) {
           dot.classList.add('active');
-          label.textContent = data.username ? `@${data.username}` : 'Conectado';
-          banner.innerHTML = `<span style="color:#4cd964; font-weight:600">✅ Conectado como @${data.username || data.user_id}</span>.`;
-          logoutBtn.style.display = 'flex';
+          let displayUname = data.username;
+
+          // Si el backend reporta user_<digits>, resolver el username real desde las cuentas guardadas
+          if (isPlaceholderUsername(displayUname)) {
+            const uid = data.user_id ? String(data.user_id) : extractUserId(activeSid);
+            const match = savedAccounts.find(a => !isPlaceholderUsername(a.username) && (extractUserId(a.sessionid) === uid));
+            if (match) displayUname = match.username;
+          }
+
+          label.textContent = displayUname ? `@${displayUname}` : 'Conectado';
+        } else if (savedAccounts.length > 0 && activeSid) {
+          // Si el contenedor se durmió pero tenemos sesión guardada, mantener optimismo visual
+          const activeAcc = savedAccounts.find(a => a.sessionid === activeSid) || savedAccounts[0];
+          dot.classList.add('active');
+          label.textContent = `@${activeAcc.username}`;
         } else {
           dot.classList.remove('active');
           label.textContent = 'Iniciar Sesión';
-          banner.textContent = 'Inicia sesión para buscar perfiles y ver destacadas e historias privadas.';
-          logoutBtn.style.display = 'none';
         }
       } catch (e) {
-        console.error(e);
+        console.warn('Error al verificar estado:', e);
       }
     }
 
-    function switchLoginTab(mode) {
-      loginMode = mode;
-      document.getElementById('tabCreds').classList.toggle('active', mode === 'creds');
-      document.getElementById('tabCookie').classList.toggle('active', mode === 'cookie');
-      document.getElementById('formCreds').style.display = mode === 'creds' ? 'block' : 'none';
-      document.getElementById('formCookie').style.display = mode === 'cookie' ? 'block' : 'none';
+    /* ==================== MODAL MULTI-CUENTA ==================== */
+    function openAccountsModal() {
+      const accounts = getSavedAccounts();
+      if (accounts.length === 0) {
+        showAddAccountView(false);
+      } else {
+        showAccountsListView();
+      }
+      document.getElementById('accountsModal').classList.add('active');
+      pingCloudServer();
+    }
+
+    function closeAccountsModal() {
+      document.getElementById('accountsModal').classList.remove('active');
+    }
+
+    function showAccountsListView() {
+      document.getElementById('viewAccountsList').style.display = 'block';
+      document.getElementById('viewAddAccount').style.display = 'none';
+      renderSavedAccountsList();
+    }
+
+    function showAddAccountView(canGoBack = true) {
+      document.getElementById('viewAccountsList').style.display = 'none';
+      document.getElementById('viewAddAccount').style.display = 'block';
+      document.getElementById('btnBackToAccounts').style.display = canGoBack ? 'flex' : 'none';
       document.getElementById('loginFeedback').textContent = '';
     }
 
+    function renderSavedAccountsList() {
+      const container = document.getElementById('savedAccountsContainer');
+      const accounts = getSavedAccounts();
+      const currentActiveSid = getActiveSessionId();
+      const currentLabel = document.getElementById('statusLabel').textContent.replace('@', '').toLowerCase();
+
+      if (accounts.length === 0) {
+        container.innerHTML = `
+          <div style="padding:20px; text-align:center; color:var(--muted); font-size:0.86rem;">
+            No tienes ninguna cuenta conectada.<br>Añade una para empezar a navegar.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = accounts.map(acc => {
+        const isActive = (currentActiveSid && acc.sessionid === currentActiveSid) ||
+                         (currentLabel && acc.username.toLowerCase() === currentLabel);
+
+        const avatarHtml = acc.profile_pic_url
+          ? `<img src="${directOrProxyUrl(acc.profile_pic_url)}" class="account-avatar ${isActive ? 'active-ring' : ''}" onerror="this.src=proxyFallbackUrl('${acc.profile_pic_url}')" />`
+          : `<div class="account-avatar-fallback">${acc.username.slice(0, 1).toUpperCase()}</div>`;
+
+        return `
+          <div class="account-row ${isActive ? 'active' : ''}" onclick="onAccountRowClicked('${acc.id}', event)">
+            ${avatarHtml}
+            <div class="account-info">
+              <div class="account-username-line">
+                <span class="account-uname">@${acc.username}</span>
+                ${isActive ? '<span class="badge-active-pill">ACTIVA</span>' : ''}
+              </div>
+              <div class="account-sub">${escapeHtml(acc.full_name || 'Sesión lista para usar')}</div>
+            </div>
+
+            ${isActive
+              ? '<span style="color:#34c759; font-size:1.1rem; font-weight:800; padding-right:4px;">✓</span>'
+              : `<button class="btn-switch-account" onclick="switchAccountTo('${acc.id}', event)">Cambiar</button>`
+            }
+
+            <button class="btn-trash-account" onclick="confirmDeleteAccount('${acc.id}', event)" title="Eliminar cuenta">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function onAccountRowClicked(accId, evt) {
+      if (evt.target.closest('.btn-trash-account')) return;
+      switchAccountTo(accId, evt);
+    }
+
+    async function switchAccountTo(accId, evt) {
+      if (evt) evt.stopPropagation();
+      const accounts = getSavedAccounts();
+      const target = accounts.find(a => a.id === accId);
+      if (!target) return;
+
+      // Optimismo visual inmediato
+      setActiveSessionId(target.sessionid);
+      document.getElementById('statusDot').classList.add('active');
+      document.getElementById('statusLabel').textContent = `@${target.username}`;
+
+      // Reordenar al frente
+      const reordered = [target, ...accounts.filter(a => a.id !== accId)];
+      saveSavedAccounts(reordered);
+      renderSavedAccountsList();
+
+      // Sincronizar backend en segundo plano enviando el username conocido
+      try {
+        await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: isPlaceholderUsername(target.username) ? null : target.username,
+            sessionid: target.sessionid
+          })
+        });
+      } catch (e) {
+        console.warn('Sync login error:', e);
+      }
+
+      await checkStatus();
+      closeAccountsModal();
+    }
+
+    function confirmDeleteAccount(accId, evt) {
+      if (evt) evt.stopPropagation();
+      const accounts = getSavedAccounts();
+      const acc = accounts.find(a => a.id === accId);
+      if (!acc) return;
+
+      if (!confirm(`¿Eliminar la cuenta @${acc.username} de este dispositivo?`)) return;
+
+      const remaining = accounts.filter(a => a.id !== accId);
+      saveSavedAccounts(remaining);
+
+      // Si se eliminó la activa, cambiar a la siguiente o cerrar sesión
+      if (getActiveSessionId() === acc.sessionid) {
+        if (remaining.length > 0) {
+          switchAccountTo(remaining[0].id);
+        } else {
+          setActiveSessionId('');
+          fetch('/api/logout', { method: 'POST' });
+          checkStatus();
+          showAddAccountView(false);
+        }
+      } else {
+        renderSavedAccountsList();
+      }
+    }
+
+    async function logoutAllAccounts() {
+      if (!confirm('¿Estás seguro de que deseas cerrar todas las sesiones guardadas?')) return;
+      saveSavedAccounts([]);
+      setActiveSessionId('');
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+      } catch (e) {}
+      await checkStatus();
+      showAddAccountView(false);
+    }
+
+    /* ==================== AÑADIR CUENTA / CONECTAR EN LA NUBE ==================== */
+    function switchLoginMethod(method) {
+      loginMethod = method;
+      document.getElementById('tabCreds').classList.toggle('active', method === 'creds');
+      document.getElementById('tabCookie').classList.toggle('active', method === 'cookie');
+      document.getElementById('formCreds').style.display = method === 'creds' ? 'block' : 'none';
+      document.getElementById('formCookie').style.display = method === 'cookie' ? 'block' : 'none';
+      document.getElementById('loginFeedback').textContent = '';
+      document.getElementById('btnSubmitLogin').querySelector('span').textContent = 
+        method === 'creds' ? 'Conectar Cuenta en la Nube' : 'Conectar con Cookie sessionid';
+    }
+
+    async function pasteSessionId() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) document.getElementById('sessionidInput').value = text.trim();
+      } catch (e) {
+        document.getElementById('sessionidInput').focus();
+      }
+    }
+
+    async function submitAccountConnection() {
+      const fb = document.getElementById('loginFeedback');
+      const btn = document.getElementById('btnSubmitLogin');
+      fb.textContent = 'Conectando con la nube de Instagram...';
+      fb.style.color = 'var(--muted)';
+      btn.disabled = true;
+
+      const payload = loginMethod === 'cookie'
+        ? { sessionid: document.getElementById('sessionidInput').value.trim() || null }
+        : {
+            username: document.getElementById('userInput').value.trim() || null,
+            password: document.getElementById('passInput').value || null,
+            verification_code: document.getElementById('code2faInput').value.trim() || null,
+          };
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          const rawName = data.username || (payload.username ? payload.username.replace(/^@/, '') : 'usuario');
+          const sid = data.sessionid || payload.sessionid || '';
+          
+          if (sid) {
+            setActiveSessionId(sid);
+            addOrUpdateSavedAccount(rawName, sid, rawName, '');
+          }
+
+          fb.textContent = '✓ ' + (data.message || 'Cuenta conectada con éxito');
+          fb.style.color = 'var(--success)';
+
+          await checkStatus();
+          setTimeout(() => {
+            closeAccountsModal();
+            // Limpiar inputs
+            document.getElementById('userInput').value = '';
+            document.getElementById('passInput').value = '';
+            document.getElementById('code2faInput').value = '';
+            document.getElementById('sessionidInput').value = '';
+          }, 800);
+        } else {
+          fb.textContent = '⚠️ ' + (data.detail || 'Error de autenticación');
+          fb.style.color = '#ff6b6b';
+        }
+      } catch (e) {
+        fb.textContent = '⚠️ Error de conexión con el servidor en la nube';
+        fb.style.color = '#ff6b6b';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ==================== BÚSQUEDA Y RESOLUCIÓN ==================== */
     function onSearchInputChange(val) {
       clearTimeout(searchDebounceTimer);
       const trimmed = val.trim();
@@ -1228,7 +1904,7 @@
       if (trimmed.length >= 2) {
         searchDebounceTimer = setTimeout(() => {
           triggerAccountSearch(true);
-        }, 380);
+        }, 360);
       } else {
         dropdown.classList.remove('active');
       }
@@ -1270,11 +1946,11 @@
               </div>
               <div class="search-fullname">${escapeHtml(u.full_name || '')}</div>
             </div>
-            <span style="color:#ff7597; font-size:0.78rem; font-weight:700;">Ver Perfil →</span>
+            <span style="color:#ff7597; font-size:0.78rem; font-weight:700;">Ver Perfil ›</span>
           </div>
         `).join('');
       } catch (err) {
-        dropdown.innerHTML = `<div style="padding:14px; text-align:center; color:#ff6b6b; font-size:0.82rem;">❌ ${err.message}</div>`;
+        dropdown.innerHTML = `<div style="padding:14px; text-align:center; color:#ff6b6b; font-size:0.82rem;">⚠️ ${err.message}</div>`;
       }
     }
 
@@ -1330,7 +2006,7 @@
       } catch (err) {
         resultsDiv.innerHTML = `
           <div class="card" style="border-color:#e74c3c; background:rgba(231,76,60,0.12)">
-            <p style="color:#ff6b6b; font-size:0.88rem">❌ ${err.message}</p>
+            <p style="color:#ff6b6b; font-size:0.88rem">⚠️ ${err.message}</p>
           </div>
         `;
       } finally {
@@ -1339,7 +2015,7 @@
       }
     }
 
-    /* Renderizar Perfil */
+    /* ==================== VISTA DE PERFIL ==================== */
     function renderFullProfile(data) {
       const resultsDiv = document.getElementById('results');
       const u = data.user;
@@ -1377,7 +2053,7 @@
           </div>
           ${data.next_cursor ? `
             <button id="btnLoadMorePosts" class="btn-secondary" style="width:100%; margin-top:12px;" onclick="loadMoreProfilePosts()">
-              ➕ Cargar más publicaciones
+              ⚡ Cargar más publicaciones
             </button>
           ` : ''}
         `
@@ -1410,7 +2086,7 @@
 
           <div class="profile-actions">
             <button class="btn-secondary ${hasStories ? 'story-active' : ''}" onclick="openProfileActiveStories()">
-              🕵️‍♂️ ${hasStories ? `Ver Historias (${data.stories.length})` : 'Sin Historias Hoy'}
+              👁️ ${hasStories ? `Ver Historias (${data.stories.length})` : 'Sin Historias Hoy'}
             </button>
             <button class="btn-secondary" onclick="saveToPhotos('${avatarUrl}', '${u.username}_profile_hd.jpg', 'photo')">
               🖼️ Guardar Foto HD
@@ -1418,7 +2094,7 @@
           </div>
 
           <button id="btnToggleFav" class="btn-secondary ${isFav ? 'btn-fav' : ''}" style="width:100%; margin-bottom:14px;" onclick="toggleFavoriteAccount(currentProfileData.user)">
-            ${isFav ? '★ En Favoritos' : '⭐ Añadir a Favoritos'}
+            ${isFav ? '⭐ En Favoritos' : '⭐ Añadir a Favoritos'}
           </button>
 
           ${highlightsHtml}
@@ -1431,7 +2107,7 @@
       return postsArray.map((post, i) => {
         const idx = startIndex + i;
         let badge = '';
-        if (post.media_type === 'carousel') badge = `❐ ${post.items.length}`;
+        if (post.media_type === 'carousel') badge = `📁 ${post.items.length}`;
         else if (post.media_type === 'video') badge = '▶ Reel';
         return `
           <div class="grid-cell" onclick="openProfilePost(${idx})">
@@ -1472,12 +2148,12 @@
           btn.remove();
         } else if (btn) {
           btn.disabled = false;
-          btn.textContent = '➕ Cargar más publicaciones';
+          btn.textContent = '⚡ Cargar más publicaciones';
         }
       } catch (e) {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = '➕ Reintentar cargar más';
+          btn.textContent = '⚡ Reintentar cargar más';
         }
       }
     }
@@ -1487,7 +2163,7 @@
         alert('Este usuario no tiene historias activas en las últimas 24 horas.');
         return;
       }
-      openStoryViewer(currentProfileData.stories, `@${currentProfileData.user.username} · Historias`);
+      openStoryViewer(currentProfileData.stories, `@${currentProfileData.user.username} • Historias`);
     }
 
     /* ==================== EXPLORADOR DE DESTACADAS ==================== */
@@ -1502,32 +2178,29 @@
         const res = await fetch(`/api/highlight/${encodeURIComponent(highlightPk)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'No se pudo cargar la destacada');
-        if (!data.items || data.items.length === 0) {
-          throw new Error('Esta destacada no contiene historias.');
-        }
+        if (!data.items || data.items.length === 0) throw new Error('Esta destacada no contiene historias visibles.');
 
         currentHighlightData = data;
-        document.getElementById('hlModalCount').textContent = `${data.items.length} historia(s) disponibles`;
+        document.getElementById('hlModalCount').textContent = `${data.items.length} historia(s)`;
         renderHighlightGrid();
       } catch (err) {
-        document.getElementById('hlStoriesGrid').innerHTML = `<div style="grid-column: span 2; padding:16px; background:rgba(231,76,60,0.15); border-radius:12px; color:#ff6b6b; text-align:center;">❌ ${err.message}</div>`;
+        document.getElementById('hlStoriesGrid').innerHTML = `<div style="grid-column: span 2; text-align:center; color:#ff6b6b; padding:20px;">⚠️ ${err.message}</div>`;
       }
     }
 
     function renderHighlightGrid() {
       if (!currentHighlightData || !currentHighlightData.items) return;
-      const items = currentHighlightData.items;
       const grid = document.getElementById('hlStoriesGrid');
 
-      grid.innerHTML = items.map((item, idx) => {
+      grid.innerHTML = currentHighlightData.items.map((item, idx) => {
         const isSelected = selectedHighlightIndices.has(idx);
         const isVideo = item.media_type === 'video';
-        const mediaSrc = directOrProxyUrl(item.thumbnail || item.url);
+        const thumbSrc = directOrProxyUrl(item.thumbnail || item.url);
 
         return `
           <div class="story-card-item ${isSelected ? 'selected' : ''}">
             <div class="story-card-thumb" onclick="playHighlightStoryAt(${idx})">
-              <img src="${mediaSrc}" loading="lazy" alt="Story" onerror="this.src=proxyFallbackUrl('${item.thumbnail || item.url}')" />
+              <img src="${thumbSrc}" loading="lazy" alt="Story" onerror="this.src=proxyFallbackUrl('${thumbSrc}')" />
               <div class="grid-type-badge" style="bottom:6px; left:6px; top:auto; right:auto;">
                 ${isVideo ? '▶ Video' : '📷 Foto'}
               </div>
@@ -1575,7 +2248,7 @@
       const count = selectedHighlightIndices.size;
       const total = currentHighlightData?.items?.length || 0;
       document.getElementById('hlSelectedCountLabel').textContent = `${count} de ${total} seleccionada(s)`;
-      document.getElementById('btnDownloadSelectedHl').textContent = count > 0 ? `⬇️ Guardar (${count})` : '⬇️ Guardar selección';
+      document.getElementById('btnDownloadSelectedHl').textContent = count > 0 ? `💾 Guardar (${count})` : '💾 Guardar selección';
       document.getElementById('btnToggleSelectAllHl').textContent = count === total && total > 0 ? 'Deseleccionar todas' : '✓ Seleccionar todas';
     }
 
@@ -1598,7 +2271,7 @@
       document.getElementById('highlightModal').classList.remove('active');
     }
 
-    /* ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ROBUSTO ==================== */
+    /* ==================== VISOR ANÓNIMO A PANTALLA COMPLETA ==================== */
     function openStoryViewer(items, titleLabel) {
       openStoryViewerFromIndex(items, titleLabel, 0);
     }
@@ -1650,7 +2323,7 @@
       }).join('');
 
       document.getElementById('storyHeaderTitle').textContent = `${activeStoryLabel} (${activeStoryIndex + 1}/${activeStoryQueue.length})`;
-      document.getElementById('storyHeaderSub').textContent = `🕵️‍♂️ Anónimo ${item.taken_at ? '· ' + item.taken_at : ''}`;
+      document.getElementById('storyHeaderSub').textContent = `🔒 Anónimo ${item.taken_at ? '• ' + item.taken_at : ''}`;
 
       const holder = document.getElementById('storyMediaHolder');
       holder.innerHTML = '';
@@ -1671,18 +2344,13 @@
         video.style.maxWidth = '100%';
         video.style.objectFit = 'contain';
 
-        // Intento directo rápido por CDN (soporta meta no-referrer)
         video.src = directOrProxyUrl(item.url);
         holder.appendChild(video);
 
-        video.play().catch(e => {
-          console.log('Reproducción diferida:', e);
-        });
-
+        video.play().catch(e => console.log('Playback:', e));
         video.onerror = () => {
-          console.log('Error en CDN directo, usando túnel proxy con soporte HTTP Range');
           video.src = proxyFallbackUrl(item.url, item.filename);
-          video.play().catch(e => console.log('Proxy diferido:', e));
+          video.play().catch(e => console.log('Proxy playback:', e));
         };
       } else {
         soundBtn.style.display = 'none';
@@ -1744,8 +2412,8 @@
       document.getElementById('cbSelectAllPost').className = `custom-checkbox ${allSelected ? 'checked' : ''}`;
       document.getElementById('postSelectedCountLabel').textContent = `${selectedPostIndices.size} de ${currentPostItems.length} seleccionados`;
       document.getElementById('btnDownloadSelectedPost').textContent = selectedPostIndices.size > 0 
-        ? `⬇️ Guardar (${selectedPostIndices.size})` 
-        : '⬇️ Guardar selección';
+        ? `💾 Guardar (${selectedPostIndices.size})` 
+        : '💾 Guardar selección';
 
       body.innerHTML = currentPostItems.map((item, idx) => {
         const isSelected = selectedPostIndices.has(idx);
@@ -1764,11 +2432,11 @@
             <div class="media-preview">
               ${isVideo
                 ? `<video src="${proxyFallbackUrl(item.url, item.filename)}" controls playsinline preload="metadata"></video>`
-                : `<img src="${mediaSrc}" loading="lazy" alt="Media" onerror="this.src=proxyFallbackUrl('${item.url}')" />`
+                : `<img src="${mediaSrc}" loading="lazy" alt="Item" onerror="this.src=proxyFallbackUrl('${item.url}')" />`
               }
             </div>
 
-            <button class="btn-save-photos" style="margin-top:10px;" onclick="saveToPhotos('${mediaSrc}', '${item.filename}', '${item.media_type}')">
+            <button class="btn-save-photos" onclick="saveToPhotos('${mediaSrc}', '${item.filename}', '${item.media_type}')">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
               <span>Guardar este archivo en Fotos</span>
             </button>
@@ -1817,9 +2485,9 @@
       resultsDiv.innerHTML = `
         <div class="card" style="margin-bottom:12px;">
           <div class="selection-bar" style="margin-bottom:0;">
-            <span style="font-weight:700;">@${username} · ${items.length} elemento(s)</span>
+            <span style="font-weight:700;">@${username} • ${items.length} elemento(s)</span>
             <button class="btn-main" style="width:auto; padding:8px 14px; font-size:0.82rem;" onclick="batchSaveToPhotos(currentPostItems)">
-              ⬇️ Guardar todos en Fotos
+              💾 Guardar todos en Fotos
             </button>
           </div>
         </div>
@@ -1835,7 +2503,7 @@
                 }
               </div>
               <div class="media-meta">
-                <span>#${idx + 1} · ${item.media_type.toUpperCase()}</span>
+                <span>#${idx + 1} • ${item.media_type.toUpperCase()}</span>
               </div>
               <button class="btn-save-photos" onclick="saveToPhotos('${mediaSrc}', '${item.filename}', '${item.media_type}')">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
@@ -1857,7 +2525,7 @@
           console.warn('Error en descarga:', e);
         }
       }
-      alert(`✅ Se procesaron ${saved} de ${itemsList.length} archivos para guardar en Fotos.`);
+      alert(`✓ Se procesaron ${saved} de ${itemsList.length} archivos para guardar en Fotos.`);
     }
 
     async function saveToPhotos(fileUrl, filename, mediaType, notify = true) {
@@ -1900,57 +2568,7 @@
       return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     }
 
-    function openLoginSheet() { document.getElementById('loginSheet').classList.add('active'); }
-    function closeLoginSheet() { document.getElementById('loginSheet').classList.remove('active'); }
-
-    async function submitLogin() {
-      const fb = document.getElementById('loginFeedback');
-      const btn = document.getElementById('btnSubmitLogin');
-      fb.textContent = 'Autenticando con Instagram...';
-      fb.style.color = 'var(--muted)';
-      btn.disabled = true;
-
-      const payload = loginMode === 'cookie'
-        ? { sessionid: document.getElementById('sessionidInput').value.trim() || null }
-        : {
-            username: document.getElementById('userInput').value.trim() || null,
-            password: document.getElementById('passInput').value || null,
-            verification_code: document.getElementById('code2faInput').value.trim() || null,
-          };
-
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (res.ok) {
-          fb.textContent = '✅ ' + (data.message || 'Sesión iniciada con éxito');
-          fb.style.color = 'var(--success)';
-          await checkStatus();
-          setTimeout(closeLoginSheet, 900);
-        } else {
-          fb.textContent = '❌ ' + (data.detail || 'Error de autenticación');
-          fb.style.color = '#ff6b6b';
-        }
-      } catch (e) {
-        fb.textContent = '❌ Error de conexión con el servidor';
-        fb.style.color = '#ff6b6b';
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function logoutSession() {
-      const fb = document.getElementById('loginFeedback');
-      fb.textContent = 'Cerrando sesión...';
-      await fetch('/api/logout', { method: 'POST' });
-      fb.textContent = 'Sesión cerrada.';
-      fb.style.color = 'var(--muted)';
-      await checkStatus();
-    }
-
+    // Inicialización al cargar la aplicación
     checkStatus();
     renderFavoritesBar();
     renderRecentsBar();
