@@ -433,6 +433,8 @@
     .profile-stats { display: flex; gap: 14px; font-size: 0.8rem; }
     .profile-stats div span { font-weight: 700; color: white; }
     .profile-stats div { color: var(--muted); }
+    .stat-clickable { cursor: pointer; transition: opacity 0.15s; }
+    .stat-clickable:hover { opacity: 0.75; }
     .profile-bio {
       font-size: 0.83rem;
       color: #d0d0dc;
@@ -2233,8 +2235,8 @@
               <div class="profile-fullname">${escapeHtml(u.full_name)}</div>
               <div class="profile-stats">
                 <div><span>${u.media_count}</span> posts</div>
-                <div><span>${formatNum(u.follower_count)}</span> seg.</div>
-                <div><span>${formatNum(u.following_count)}</span> sig.</div>
+                <div class="stat-clickable" onclick="openFollowList('${u.pk}', 'followers', ${u.follower_count})" title="Ver seguidores"><span>${formatNum(u.follower_count)}</span> seg.</div>
+                <div class="stat-clickable" onclick="openFollowList('${u.pk}', 'following', ${u.following_count})" title="Ver siguiendo"><span>${formatNum(u.following_count)}</span> sig.</div>
               </div>
             </div>
           </div>
@@ -2729,6 +2731,119 @@
     checkStatus();
     renderFavoritesBar();
     renderRecentsBar();
+  
+    // ===== FOLLOW LIST =====
+    let _followState = { pk: null, type: null, cursor: '', total: 0, loading: false };
+
+    function openFollowList(pk, type, totalCount) {
+      _followState = { pk, type, cursor: '', total: totalCount, loading: false };
+      document.getElementById('followListBody').innerHTML = '';
+      document.getElementById('followListLoadMore').style.display = 'none';
+      document.getElementById('followListCount').textContent = '';
+      document.getElementById('followListModal').style.display = 'flex';
+      switchFollowTab(type);
+      loadFollowList();
+    }
+
+    function closeFollowList() {
+      document.getElementById('followListModal').style.display = 'none';
+    }
+
+    function switchFollowTab(type) {
+      _followState.type = type;
+      _followState.cursor = '';
+      document.getElementById('followListBody').innerHTML = '';
+      document.getElementById('followListLoadMore').style.display = 'none';
+      const tF = document.getElementById('tabFollowers');
+      const tG = document.getElementById('tabFollowing');
+      if (type === 'followers') {
+        tF.style.background = '#1e1e2e'; tF.style.color = 'white';
+        tG.style.background = '#0b0b10'; tG.style.color = 'var(--muted)';
+      } else {
+        tG.style.background = '#1e1e2e'; tG.style.color = 'white';
+        tF.style.background = '#0b0b10'; tF.style.color = 'var(--muted)';
+      }
+      loadFollowList();
+    }
+
+    async function loadFollowList() {
+      if (_followState.loading) return;
+      _followState.loading = true;
+      document.getElementById('followListLoader').style.display = 'block';
+      const { pk, type, cursor } = _followState;
+      try {
+        const qs = new URLSearchParams({ amount: 50, ...(cursor ? { cursor } : {}) });
+        const res = await authFetch(`/api/user-${type}/${pk}?${qs}`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+          renderFollowUsers(data.users, cursor !== '');
+          _followState.cursor = data.next_cursor || '';
+          const count = document.getElementById('followListCount');
+          const bodyItems = document.getElementById('followListBody').querySelectorAll('.follow-user-card');
+          count.textContent = `${bodyItems.length.toLocaleString()} mostrados`;
+          const lmBtn = document.getElementById('followListLoadMore');
+          lmBtn.style.display = _followState.cursor ? 'block' : 'none';
+        } else {
+          document.getElementById('followListBody').innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">No disponible para cuentas privadas o sin sesion.</p>';
+        }
+      } catch(e) {
+        document.getElementById('followListBody').innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">Error al cargar lista.</p>';
+      } finally {
+        _followState.loading = false;
+        document.getElementById('followListLoader').style.display = 'none';
+      }
+    }
+
+    function loadMoreFollowList() {
+      loadFollowList();
+    }
+
+    function renderFollowUsers(users, append) {
+      const container = document.getElementById('followListBody');
+      if (!append) container.innerHTML = '';
+      users.forEach(u => {
+        const card = document.createElement('div');
+        card.className = 'follow-user-card';
+        card.style.cssText = 'display:flex;align-items:center;gap:12px;padding:9px 6px;border-bottom:1px solid #1a1a2e;';
+        const avatarSrc = u.profile_pic_url ? `/api/proxy-file?url=${encodeURIComponent(u.profile_pic_url)}&access_token=${window._igToken||''}` : '';
+        card.innerHTML = `
+          <img src="${escapeHtml(avatarSrc)}" alt="" loading="lazy"
+            style="width:42px;height:42px;border-radius:50%;object-fit:cover;background:#1e1e2e;flex-shrink:0;"
+            onerror="this.style.visibility='hidden'">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.85rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              @${escapeHtml(u.username)}
+              ${u.is_verified ? '<span class="verified-badge">&#x2713;</span>' : ''}
+              ${u.is_private ? '<span style="font-size:0.7rem;color:var(--muted);">&#x1F512;</span>' : ''}
+            </div>
+            ${u.full_name ? `<div style="font-size:0.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u.full_name)}</div>` : ''}
+          </div>
+          <button onclick="doSearch('@${escapeHtml(u.username)}')" style="font-size:0.72rem;padding:4px 10px;border-radius:8px;background:#1e1e2e;border:1px solid #2a2a3e;color:white;cursor:pointer;">Ver</button>`;
+        container.appendChild(card);
+      });
+    }
+    // ===== END FOLLOW LIST =====
   </script>
+
+  <!-- Follow List Modal -->
+  <div id="followListModal" class="modal-overlay" onclick="if(event.target===this)closeFollowList()" style="display:none;">
+    <div class="modal-sheet" style="max-height:85vh; display:flex; flex-direction:column;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 16px 10px; flex-shrink:0;">
+        <div style="display:flex; gap:0; border-radius:10px; overflow:hidden; border:1px solid #2a2a3e;">
+          <button id="tabFollowers" onclick="switchFollowTab('followers')" style="padding:7px 18px; font-size:0.82rem; font-weight:600; background:#1e1e2e; color:white; border:none; cursor:pointer; transition:background 0.2s;">Seguidores</button>
+          <button id="tabFollowing" onclick="switchFollowTab('following')" style="padding:7px 18px; font-size:0.82rem; font-weight:600; background:#0b0b10; color:var(--muted); border:none; cursor:pointer; transition:background 0.2s;">Siguiendo</button>
+        </div>
+        <button onclick="closeFollowList()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:4px 8px;">&#x2715;</button>
+      </div>
+      <div id="followListCount" style="font-size:0.78rem; color:var(--muted); padding:0 16px 10px; flex-shrink:0;"></div>
+      <div id="followListBody" style="overflow-y:auto; flex:1; padding:0 10px 10px;"></div>
+      <div id="followListLoader" style="text-align:center; padding:12px; display:none; flex-shrink:0;">
+        <div class="spinner" style="display:inline-block;"></div>
+      </div>
+      <div id="followListLoadMore" style="padding:12px; text-align:center; flex-shrink:0; display:none;">
+        <button onclick="loadMoreFollowList()" class="btn-secondary" style="width:100%; font-size:0.82rem;">Cargar más</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
