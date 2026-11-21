@@ -790,18 +790,23 @@
       background: #111119;
       border: 1px solid var(--border);
       color: var(--muted);
-      padding: 10px;
-      border-radius: 11px;
-      font-size: 0.8rem;
+      padding: 11px 8px;
+      border-radius: 12px;
+      font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       text-align: center;
       transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     .login-tab.active {
       background: rgba(225, 48, 108, 0.18);
       border-color: #e1306c;
       color: white;
+      font-weight: 700;
     }
 
     /* Multi-Account Manager Styles */
@@ -1315,7 +1320,7 @@
         </button>
       </div>
 
-      <!-- VISTA 2: AÑADIR CUENTA / CONEXIÓN EN LA NUBE -->
+      <!-- VISTA 2: AÑADIR CUENTA (Selector Principal: Navegador Web Oficial vs Conectar en la Nube) -->
       <div id="viewAddAccount" style="display:none;">
         <div class="modal-header-nav">
           <button id="btnBackToAccounts" class="btn-modal-back" onclick="showAccountsListView()">
@@ -1325,37 +1330,100 @@
           <button class="btn-close-story" onclick="closeAccountsModal()">✕</button>
         </div>
 
-        <p style="text-align:center; font-size:0.82rem; color:var(--muted); margin-bottom:14px;">
-          Conecta en la nube para buscar perfiles y ver destacadas e historias privadas.
-        </p>
-
-        <!-- Selector de Método -->
-        <div class="login-tabs">
-          <div id="tabCreds" class="login-tab active" onclick="switchLoginMethod('creds')">☁️ En la Nube</div>
-          <div id="tabCookie" class="login-tab" onclick="switchLoginMethod('cookie')">🔑 Cookie sessionid</div>
-        </div>
-
-        <!-- Formulario: Usuario y Contraseña -->
-        <div id="formCreds">
-          <input type="text" id="userInput" class="sheet-input" placeholder="@usuario_de_instagram" autocomplete="username" />
-          <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña de Instagram" autocomplete="current-password" />
-          <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA de 6 dígitos (Si tienes 2FA)" inputmode="numeric" />
-        </div>
-
-        <!-- Formulario: Cookie sessionid -->
-        <div id="formCookie" style="display:none;">
-          <div style="position:relative;">
-            <input type="text" id="sessionidInput" class="sheet-input" style="padding-right:70px;" placeholder="Pega aquí tu cookie sessionid..." />
-            <button class="btn-paste" style="top:22px;" onclick="pasteSessionId()">Pegar</button>
+        <!-- Selector Principal: Navegador Web Oficial vs Conectar en la Nube -->
+        <div class="login-tabs" style="margin-bottom:14px;">
+          <div id="tabWebLogin" class="login-tab active" onclick="switchLoginContainerTab('web')">
+            🌐 Web Oficial
           </div>
-          <p style="font-size:0.74rem; color:var(--muted); line-height:1.35; margin-top:2px;">
-            Encuéntrala en Instagram Web &gt; F12 &gt; Application &gt; Cookies &gt; sessionid.
-          </p>
+          <div id="tabCloudLogin" class="login-tab" onclick="switchLoginContainerTab('cloud')">
+            ☁️ Conectar en la Nube
+          </div>
         </div>
 
-        <button id="btnSubmitLogin" class="btn-main" style="margin-top:8px" onclick="submitAccountConnection()">
-          <span>Conectar Cuenta en la Nube</span>
-        </button>
+        <!-- SUB-VISTA A: LOGIN WEB OFICIAL DE INSTAGRAM -->
+        <div id="containerWebLogin">
+          <div style="display:flex; align-items:center; gap:6px; background:rgba(52,199,89,0.12); border:1px solid rgba(52,199,89,0.3); border-radius:12px; padding:8px 12px; margin-bottom:12px;">
+            <span style="color:#34c759; font-size:0.9rem;">🔒</span>
+            <span style="font-size:0.75rem; color:#4cd964; font-weight:600;">instagram.com oficial • Detección automática al entrar</span>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:18px; padding:16px; text-align:center; margin-bottom:12px;">
+            <div class="brand-icon" style="width:48px; height:48px; margin:0 auto 10px auto; border-radius:14px;">
+              <svg viewBox="0 0 24 24" style="width:24px; height:24px; fill:white;"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            </div>
+            <h4 style="font-size:1.05rem; font-weight:700; margin-bottom:4px;">Inicio de Sesión Oficial</h4>
+            <p style="font-size:0.8rem; color:var(--muted); line-height:1.4; margin-bottom:14px;">
+              Inicia sesión de forma segura directamente en <strong>instagram.com</strong> oficial sin compartir contraseñas con servidores de terceros.
+            </p>
+            <button class="btn-main" onclick="openOfficialInstagramLogin()" style="padding:14px; font-size:0.92rem; margin-bottom:8px;">
+              <span>🌐 Abrir Instagram Oficial</span>
+            </button>
+          </div>
+
+          <!-- Sincronizador de Sesión -->
+          <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:16px; padding:14px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:0.82rem; font-weight:700;">Vincular Sesión de Instagram Web</span>
+              <small style="color:var(--muted); font-size:0.72rem;">Cookie sessionid</small>
+            </div>
+            <div style="position:relative; margin-bottom:10px;">
+              <input type="text" id="officialSessionInput" class="sheet-input" style="padding-right:72px; margin-bottom:0;" placeholder="Pega tu cookie sessionid..." />
+              <button class="btn-paste" style="top:50%;" onclick="pasteOfficialSessionId()">Pegar</button>
+            </div>
+            <button id="btnSubmitOfficialWeb" class="btn-main" style="padding:12px; font-size:0.86rem;" onclick="submitOfficialWebSession()">
+              <span>Conectar Sesión Detectada</span>
+            </button>
+          </div>
+
+          <div style="font-size:0.74rem; color:var(--muted); line-height:1.4; padding:2px 4px;">
+            <details style="cursor:pointer;">
+              <summary style="font-weight:600; color:#d8d8e4;">💡 ¿Cómo obtener tu cookie en 10 segundos?</summary>
+              <div style="margin-top:6px; padding-left:8px; border-left:2px solid var(--accent);">
+                1. Abre instagram.com en tu navegador e inicia sesión.<br>
+                2. Pulsa F12 (Inspeccionar) &gt; Pestaña Aplicación / Almacenamiento &gt; Cookies.<br>
+                3. Copia el valor de <strong>sessionid</strong> y pégalo arriba.
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- SUB-VISTA B: CONECTAR EN LA NUBE (Direct Cloud Login) -->
+        <div id="containerCloudLogin" style="display:none;">
+          <!-- Diagnóstico de servidores -->
+          <div class="cloud-health-box">
+            <div id="cloudDotAdd" class="cloud-dot"></div>
+            <span style="font-weight:600;">Servidores en la Nube Activos</span>
+            <span id="cloudLatencyBadgeAdd" class="cloud-latency-badge">Listo</span>
+            <button class="btn-ping-cloud" onclick="pingCloudServer()" title="Verificar conexión">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            </button>
+          </div>
+
+          <!-- Selector de Método en la Nube: Usuario/Clave vs Cookie -->
+          <div class="login-tabs" style="grid-template-columns: 1fr 1fr; margin-bottom:12px;">
+            <div id="subTabCreds" class="login-tab active" onclick="switchCloudSubMethod('creds')">Usuario y Clave</div>
+            <div id="subTabCookie" class="login-tab" onclick="switchCloudSubMethod('cookie')">Cookie sessionid</div>
+          </div>
+
+          <!-- Formulario Usuario y Contraseña -->
+          <div id="formCloudCreds">
+            <input type="text" id="userInput" class="sheet-input" placeholder="@usuario_de_instagram" autocomplete="username" />
+            <input type="password" id="passInput" class="sheet-input" placeholder="Contraseña de Instagram" autocomplete="current-password" />
+            <input type="text" id="code2faInput" class="sheet-input" placeholder="Código 2FA de 6 dígitos (Si tienes 2FA)" inputmode="numeric" />
+          </div>
+
+          <!-- Formulario Cookie sessionid -->
+          <div id="formCloudCookie" style="display:none;">
+            <div style="position:relative;">
+              <input type="text" id="sessionidInput" class="sheet-input" style="padding-right:70px;" placeholder="Pega aquí tu cookie sessionid..." />
+              <button class="btn-paste" style="top:22px;" onclick="pasteSessionId()">Pegar</button>
+            </div>
+          </div>
+
+          <button id="btnSubmitLogin" class="btn-main" style="margin-top:8px" onclick="submitAccountConnection()">
+            <span>Conectar Cuenta en la Nube</span>
+          </button>
+        </div>
 
         <div id="loginFeedback" style="font-size:0.84rem; margin-top:12px; text-align:center;"></div>
       </div>
@@ -1369,7 +1437,8 @@
     let activeStoryIndex = 0;
     let activeStoryLabel = "";
     let isStoryMuted = true;
-    let loginMethod = "creds";
+    let mainLoginTab = "web";
+    let cloudSubMethod = "creds";
     let searchDebounceTimer = null;
 
     let currentHighlightData = null;
@@ -1592,11 +1661,11 @@
 
     /* ==================== ESTADO Y SALUD EN LA NUBE ==================== */
     async function pingCloudServer() {
-      const badge = document.getElementById('cloudLatencyBadge');
-      const dot = document.getElementById('cloudDot');
+      const badges = [document.getElementById('cloudLatencyBadge'), document.getElementById('cloudLatencyBadgeAdd')];
+      const dots = [document.getElementById('cloudDot'), document.getElementById('cloudDotAdd')];
       const icon = document.getElementById('pingIcon');
 
-      if (badge) badge.textContent = 'Verificando...';
+      badges.forEach(b => { if (b) b.textContent = 'Verificando...'; });
       if (icon) icon.style.animation = 'spin 0.75s linear infinite';
 
       const t0 = performance.now();
@@ -1604,22 +1673,26 @@
         const res = await fetch('/cloud-health', { cache: 'no-store' });
         const latency = Math.round(performance.now() - t0);
         if (res.ok) {
-          if (dot) { dot.classList.remove('offline'); }
-          if (badge) {
-            badge.textContent = `${latency} ms`;
-            badge.style.color = '#34c759';
-            badge.style.background = 'rgba(52, 199, 89, 0.16)';
-          }
+          dots.forEach(d => { if (d) d.classList.remove('offline'); });
+          badges.forEach(b => {
+            if (b) {
+              b.textContent = `${latency} ms`;
+              b.style.color = '#34c759';
+              b.style.background = 'rgba(52, 199, 89, 0.16)';
+            }
+          });
         } else {
           throw new Error('Servidor no disponible');
         }
       } catch (e) {
-        if (dot) dot.classList.add('offline');
-        if (badge) {
-          badge.textContent = 'Desconectado';
-          badge.style.color = '#ff6b6b';
-          badge.style.background = 'rgba(255, 107, 107, 0.16)';
-        }
+        dots.forEach(d => { if (d) d.classList.add('offline'); });
+        badges.forEach(b => {
+          if (b) {
+            b.textContent = 'Desconectado';
+            b.style.color = '#ff6b6b';
+            b.style.background = 'rgba(255, 107, 107, 0.16)';
+          }
+        });
       } finally {
         if (icon) icon.style.animation = 'none';
       }
@@ -1688,6 +1761,28 @@
       document.getElementById('viewAddAccount').style.display = 'block';
       document.getElementById('btnBackToAccounts').style.display = canGoBack ? 'flex' : 'none';
       document.getElementById('loginFeedback').textContent = '';
+      switchLoginContainerTab('web');
+    }
+
+    function switchLoginContainerTab(tab) {
+      mainLoginTab = tab;
+      document.getElementById('tabWebLogin').classList.toggle('active', tab === 'web');
+      document.getElementById('tabCloudLogin').classList.toggle('active', tab === 'cloud');
+      document.getElementById('containerWebLogin').style.display = tab === 'web' ? 'block' : 'none';
+      document.getElementById('containerCloudLogin').style.display = tab === 'cloud' ? 'block' : 'none';
+      document.getElementById('loginFeedback').textContent = '';
+      if (tab === 'cloud') pingCloudServer();
+    }
+
+    function switchCloudSubMethod(method) {
+      cloudSubMethod = method;
+      document.getElementById('subTabCreds').classList.toggle('active', method === 'creds');
+      document.getElementById('subTabCookie').classList.toggle('active', method === 'cookie');
+      document.getElementById('formCloudCreds').style.display = method === 'creds' ? 'block' : 'none';
+      document.getElementById('formCloudCookie').style.display = method === 'cookie' ? 'block' : 'none';
+      document.getElementById('loginFeedback').textContent = '';
+      document.getElementById('btnSubmitLogin').querySelector('span').textContent = 
+        method === 'creds' ? 'Conectar Cuenta en la Nube' : 'Conectar con Cookie sessionid';
     }
 
     function renderSavedAccountsList() {
@@ -1813,16 +1908,79 @@
       showAddAccountView(false);
     }
 
-    /* ==================== AÑADIR CUENTA / CONECTAR EN LA NUBE ==================== */
-    function switchLoginMethod(method) {
-      loginMethod = method;
-      document.getElementById('tabCreds').classList.toggle('active', method === 'creds');
-      document.getElementById('tabCookie').classList.toggle('active', method === 'cookie');
-      document.getElementById('formCreds').style.display = method === 'creds' ? 'block' : 'none';
-      document.getElementById('formCookie').style.display = method === 'cookie' ? 'block' : 'none';
-      document.getElementById('loginFeedback').textContent = '';
-      document.getElementById('btnSubmitLogin').querySelector('span').textContent = 
-        method === 'creds' ? 'Conectar Cuenta en la Nube' : 'Conectar con Cookie sessionid';
+    /* ==================== AÑADIR CUENTA / MÉTODOS DE LOGIN ==================== */
+    function openOfficialInstagramLogin() {
+      // 1. Soporte en WebView nativo de iOS / Android
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openInstagramWebLogin) {
+        window.webkit.messageHandlers.openInstagramWebLogin.postMessage({});
+        return;
+      }
+      if (window.AndroidBridge && window.AndroidBridge.openInstagramWebLogin) {
+        window.AndroidBridge.openInstagramWebLogin();
+        return;
+      }
+      // 2. En navegador Web estándar: abrir ventana oficial de login
+      const w = 480, h = 680;
+      const left = Math.max(0, (window.screen.width - w) / 2);
+      const top = Math.max(0, (window.screen.height - h) / 2);
+      const popup = window.open('https://www.instagram.com/accounts/login/', 'InstagramOfficialLogin', `width=${w},height=${h},top=${top},left=${left},resizable=yes,scrollbars=yes`);
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        window.open('https://www.instagram.com/accounts/login/', '_blank');
+      }
+    }
+
+    async function pasteOfficialSessionId() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) document.getElementById('officialSessionInput').value = text.trim();
+      } catch (e) {
+        document.getElementById('officialSessionInput').focus();
+      }
+    }
+
+    async function submitOfficialWebSession() {
+      const sid = document.getElementById('officialSessionInput').value.trim();
+      const fb = document.getElementById('loginFeedback');
+      const btn = document.getElementById('btnSubmitOfficialWeb');
+      if (!sid) {
+        fb.textContent = '⚠️ Pega tu cookie sessionid de Instagram.';
+        fb.style.color = '#ff6b6b';
+        return;
+      }
+
+      fb.textContent = 'Vinculando sesión de Instagram oficial...';
+      fb.style.color = 'var(--muted)';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionid: sid })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          const uname = data.username || 'usuario';
+          setActiveSessionId(sid);
+          addOrUpdateSavedAccount(uname, sid, uname, '');
+          fb.textContent = '✓ Sesión oficial conectada: @' + uname;
+          fb.style.color = 'var(--success)';
+          await checkStatus();
+          setTimeout(() => {
+            closeAccountsModal();
+            document.getElementById('officialSessionInput').value = '';
+          }, 800);
+        } else {
+          fb.textContent = '⚠️ ' + (data.detail || 'Cookie no válida o caducada');
+          fb.style.color = '#ff6b6b';
+        }
+      } catch (e) {
+        fb.textContent = '⚠️ Error al conectar con el servidor';
+        fb.style.color = '#ff6b6b';
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     async function pasteSessionId() {
@@ -1841,7 +1999,7 @@
       fb.style.color = 'var(--muted)';
       btn.disabled = true;
 
-      const payload = loginMethod === 'cookie'
+      const payload = cloudSubMethod === 'cookie'
         ? { sessionid: document.getElementById('sessionidInput').value.trim() || null }
         : {
             username: document.getElementById('userInput').value.trim() || null,
@@ -1872,7 +2030,6 @@
           await checkStatus();
           setTimeout(() => {
             closeAccountsModal();
-            // Limpiar inputs
             document.getElementById('userInput').value = '';
             document.getElementById('passInput').value = '';
             document.getElementById('code2faInput').value = '';
