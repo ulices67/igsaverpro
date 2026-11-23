@@ -144,3 +144,31 @@ struct SavedAccount: Codable, Identifiable, Equatable {
 
     var id: String { username.lowercased() }
 }
+
+struct FollowUser: Codable, Identifiable {
+    let pk: String
+    let username: String
+    let full_name: String
+    let profile_pic_url: String
+    let is_private: Bool
+    let is_verified: Bool
+    let has_stories: Bool?
+
+    var id: String { pk + "_" + username }
+}
+
+struct FollowListResponse: Codable {
+    let status: String
+    let count: Int?
+    let users: [FollowUser]
+    let next_cursor: String
+}
+
+struct FollowListSession: Identifiable {
+    let id = UUID()
+    let userId: String
+    let username: String
+    let followerCount: Int
+    let followingCount: Int
+    let initialTab: String // "followers" or "following"
+}

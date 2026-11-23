@@ -23,6 +23,7 @@ struct ContentView: View {
     // Hoja de Login y Detalle de Publicación
     @State private var showingLoginSheet = false
     @State private var selectedPost: PostItem?
+    @State private var activeFollowList: FollowListSession?
 
     // Persistencia de Favoritos y Búsquedas Recientes
     @AppStorage("ig_fav_accounts") private var favAccountsJSON: String = "[]"
@@ -128,6 +129,18 @@ struct ContentView: View {
             .sheet(item: $selectedPost) { post in
                 PostDetailSheetView(post: post, username: resolvedProfile?.user?.username ?? "user", api: api)
             }
+            .sheet(item: $activeFollowList) { followSession in
+                FollowListSheetView(
+                    session: followSession,
+                    api: api,
+                    onSelectUser: { user in
+                        activeFollowList = nil
+                        selectSearchedUser(user)
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
             .sheet(item: $activeHighlightDetail) { hl in
                 HighlightExplorerSheetView(
                     highlight: hl,
@@ -148,6 +161,7 @@ struct ContentView: View {
                     activeStorySession == nil &&
                     activeHighlightDetail == nil &&
                     selectedPost == nil &&
+                    activeFollowList == nil &&
                     !showingLoginSheet &&
                     (api.errorMessage != nil || api.toastMessage != nil)
                 },
@@ -545,8 +559,37 @@ struct ContentView: View {
                     if user.media_count > 0 || user.follower_count > 0 || !api.isLoading {
                         HStack(spacing: 14) {
                             Text("**\(user.media_count)** posts").font(.system(size: 12))
-                            Text("**\(user.follower_count)** seg.").font(.system(size: 12))
-                            Text("**\(user.following_count)** sig.").font(.system(size: 12))
+                            Button {
+                                guard !user.pk.isEmpty else { return }
+                                activeFollowList = FollowListSession(
+                                    userId: user.pk,
+                                    username: user.username,
+                                    followerCount: user.follower_count,
+                                    followingCount: user.following_count,
+                                    initialTab: "followers"
+                                )
+                            } label: {
+                                Text("**\(user.follower_count)** seg.")
+                                    .font(.system(size: 12))
+                                    .underline(true, color: .white.opacity(0.35))
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                guard !user.pk.isEmpty else { return }
+                                activeFollowList = FollowListSession(
+                                    userId: user.pk,
+                                    username: user.username,
+                                    followerCount: user.follower_count,
+                                    followingCount: user.following_count,
+                                    initialTab: "following"
+                                )
+                            } label: {
+                                Text("**\(user.following_count)** sig.")
+                                    .font(.system(size: 12))
+                                    .underline(true, color: .white.opacity(0.35))
+                            }
+                            .buttonStyle(.plain)
                         }
                         .foregroundColor(.white.opacity(0.85))
                     }
@@ -632,6 +675,56 @@ struct ContentView: View {
                         .background(Color.white.opacity(0.1))
                         .foregroundColor(.white)
                         .cornerRadius(12)
+                }
+            }
+
+            if !user.pk.isEmpty {
+                HStack(spacing: 10) {
+                    Button {
+                        activeFollowList = FollowListSession(
+                            userId: user.pk,
+                            username: user.username,
+                            followerCount: user.follower_count,
+                            followingCount: user.following_count,
+                            initialTab: "followers"
+                        )
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 12))
+                            Text("Seguidores (\(user.follower_count))")
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+
+                    Button {
+                        activeFollowList = FollowListSession(
+                            userId: user.pk,
+                            username: user.username,
+                            followerCount: user.follower_count,
+                            followingCount: user.following_count,
+                            initialTab: "following"
+                        )
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "person.badge.plus.fill")
+                                .font(.system(size: 12))
+                            Text("Seguidos (\(user.following_count))")
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
                 }
             }
 
@@ -2668,6 +2761,277 @@ struct LoginSheetView: View {
             } catch {
                 isSubmitting = false
                 statusFeedback = "❌ \(error.localizedDescription)"
+            }
+        }
+    }
+}
+
+
+// MARK: - Modal de Seguidores y Seguidos
+struct FollowListSheetView: View {
+    let session: FollowListSession
+    @ObservedObject var api: APIClient
+    let onSelectUser: (SearchUser) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTab: String
+    @State private var users: [FollowUser] = []
+    @State private var nextCursor: String = ""
+    @State private var isLoading = false
+    @State private var isLoadingMore = false
+    @State private var errorMessage: String? = nil
+    @State private var searchQuery: String = ""
+    @State private var searchTask: Task<Void, Never>? = nil
+
+    init(session: FollowListSession, api: APIClient, onSelectUser: @escaping (SearchUser) -> Void) {
+        self.session = session
+        self.api = api
+        self.onSelectUser = onSelectUser
+        _selectedTab = State(initialValue: session.initialTab)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.05, green: 0.05, blue: 0.07).ignoresSafeArea()
+
+                VStack(spacing: 12) {
+                    // Selector Seguidores / Seguidos
+                    Picker("Lista", selection: $selectedTab) {
+                        Text("Seguidores (\(session.followerCount))").tag("followers")
+                        Text("Seguidos (\(session.followingCount))").tag("following")
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .onChange(of: selectedTab) { _ in
+                        searchQuery = ""
+                        Task { await loadList(reset: true) }
+                    }
+
+                    // Buscador dentro de la lista
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 14))
+                        TextField("Buscar usuario en esta lista...", text: $searchQuery)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .foregroundColor(.white)
+                            .font(.system(size: 14))
+                            .onChange(of: searchQuery) { newValue in
+                                searchTask?.cancel()
+                                searchTask = Task {
+                                    try? await Task.sleep(nanoseconds: 380_000_000)
+                                    guard !Task.isCancelled else { return }
+                                    await loadList(reset: true)
+                                }
+                            }
+                        if !searchQuery.isEmpty {
+                            Button {
+                                searchQuery = ""
+                                Task { await loadList(reset: true) }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.07))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+
+                    // Contenido de la lista
+                    if isLoading && users.isEmpty {
+                        Spacer()
+                        VStack(spacing: 10) {
+                            ProgressView().tint(.pink).scaleEffect(1.2)
+                            Text(selectedTab == "followers" ? "Cargando seguidores..." : "Cargando seguidos...")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                    } else if let err = errorMessage, users.isEmpty {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(.pink)
+                            Text(err)
+                                .font(.footnote)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 28)
+                            Button("Reintentar") {
+                                Task { await loadList(reset: true) }
+                            }
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 9)
+                            .background(Color.pink.opacity(0.25))
+                            .cornerRadius(10)
+                        }
+                        Spacer()
+                    } else if users.isEmpty {
+                        Spacer()
+                        Text("No se encontraron usuarios.")
+                            .font(.footnote)
+                            .foregroundColor(.gray)
+                        Spacer()
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                ForEach(users) { user in
+                                    Button {
+                                        let target = SearchUser(
+                                            pk: user.pk,
+                                            username: user.username,
+                                            full_name: user.full_name,
+                                            profile_pic_url: user.profile_pic_url,
+                                            is_private: user.is_private,
+                                            is_verified: user.is_verified,
+                                            has_stories: user.has_stories ?? false,
+                                            following: false
+                                        )
+                                        onSelectUser(target)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            AsyncImage(url: api.proxyURL(for: user.profile_pic_url, filename: "\(user.username)_fl.jpg")) { img in
+                                                img.resizable().scaledToFill()
+                                            } placeholder: {
+                                                Color.white.opacity(0.1)
+                                            }
+                                            .frame(width: 44, height: 44)
+                                            .clipShape(Circle())
+                                            .overlay(
+                                                Circle().stroke(
+                                                    (user.has_stories == true)
+                                                        ? LinearGradient(colors: [.orange, .pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                                        : LinearGradient(colors: [Color.white.opacity(0.15)], startPoint: .top, endPoint: .bottom),
+                                                    lineWidth: (user.has_stories == true) ? 2 : 1
+                                                )
+                                            )
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                HStack(spacing: 4) {
+                                                    Text("@\(user.username)")
+                                                        .font(.system(size: 14, weight: .bold))
+                                                        .foregroundColor(.white)
+                                                        .lineLimit(1)
+                                                    if user.is_verified {
+                                                        Image(systemName: "checkmark.seal.fill")
+                                                            .font(.system(size: 11))
+                                                            .foregroundColor(.blue)
+                                                    }
+                                                    if user.is_private {
+                                                        Image(systemName: "lock.fill")
+                                                            .font(.system(size: 10))
+                                                            .foregroundColor(.gray)
+                                                    }
+                                                }
+                                                if !user.full_name.isEmpty {
+                                                    Text(user.full_name)
+                                                        .font(.system(size: 12))
+                                                        .foregroundColor(.gray)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            Text("Ver")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.pink)
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundColor(.gray)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 10)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Divider()
+                                        .background(Color.white.opacity(0.06))
+                                        .padding(.leading, 72)
+                                }
+
+                                if !nextCursor.isEmpty {
+                                    Button {
+                                        Task { await loadList(reset: false) }
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            if isLoadingMore {
+                                                ProgressView().tint(.white).scaleEffect(0.8)
+                                            }
+                                            Text(isLoadingMore ? "Cargando más..." : "⚡ Cargar más usuarios")
+                                                .font(.system(size: 13, weight: .bold))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.white.opacity(0.09))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(12)
+                                    }
+                                    .disabled(isLoadingMore)
+                                    .padding(16)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("@\(session.username)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }
+                        .foregroundColor(.white)
+                }
+            }
+            .task {
+                await loadList(reset: true)
+            }
+        }
+    }
+
+    private func loadList(reset: Bool) async {
+        if reset {
+            isLoading = true
+            errorMessage = nil
+            nextCursor = ""
+            users = []
+        } else {
+            guard !isLoadingMore && !nextCursor.isEmpty else { return }
+            isLoadingMore = true
+        }
+        defer {
+            isLoading = false
+            isLoadingMore = false
+        }
+
+        do {
+            let resp = try await api.fetchFollowList(
+                userId: session.userId,
+                type: selectedTab,
+                cursor: reset ? "" : nextCursor,
+                query: searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            if reset {
+                users = resp.users
+            } else {
+                let existing = Set(users.map { $0.pk })
+                let newOnes = resp.users.filter { !existing.contains($0.pk) }
+                users.append(contentsOf: newOnes)
+            }
+            nextCursor = resp.next_cursor
+        } catch {
+            if reset {
+                errorMessage = error.localizedDescription
             }
         }
     }

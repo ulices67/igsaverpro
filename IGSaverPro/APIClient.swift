@@ -644,6 +644,34 @@ class APIClient: ObservableObject {
         return try JSONDecoder().decode(MorePostsResponse.self, from: data)
     }
 
+    func fetchFollowList(
+        userId: String,
+        type: String,
+        cursor: String = "",
+        query: String = "",
+        amount: Int = 50
+    ) async throws -> FollowListResponse {
+        let endpoint = type == "following" ? "user-following" : "user-followers"
+        guard var comps = URLComponents(string: "\(serverURL)/api/\(endpoint)/\(userId)") else {
+            throw URLError(.badURL)
+        }
+        var items: [URLQueryItem] = [
+            URLQueryItem(name: "amount", value: String(amount))
+        ]
+        if !cursor.isEmpty {
+            items.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+        if !query.isEmpty {
+            items.append(URLQueryItem(name: "query", value: query))
+        }
+        comps.queryItems = items
+        guard let url = comps.url else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 25
+        let (data, _) = try await requestData(for: req)
+        return try JSONDecoder().decode(FollowListResponse.self, from: data)
+    }
+
     /// Descarga un recurso multimedia (foto o video de historia/destacada) a caché local con extensión real (.mp4/.jpg).
     /// Intenta primero descarga directa desde CDN de Instagram (sigue redirecciones 302 rápido) y usa el proxy de respaldo.
     func downloadMediaToCache(rawURL: String, filename: String = "media", expectVideo: Bool) async throws -> URL {
