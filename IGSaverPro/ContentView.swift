@@ -135,7 +135,7 @@ struct ContentView: View {
                     api: api,
                     onSelectUser: { user in
                         activeFollowList = nil
-                        selectSearchedUser(user)
+                        selectAccount(user)
                     }
                 )
                 .presentationDetents([.large])
