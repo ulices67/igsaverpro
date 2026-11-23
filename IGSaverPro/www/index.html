@@ -1082,6 +1082,127 @@
     }
     .btn-save-photos:active { background: #32324a; }
 
+
+    /* ==================== MODO NAVIDEÑO 🎄❄️ ==================== */
+    body.christmas-mode {
+      background:
+        radial-gradient(circle at 12% 8%, rgba(212, 36, 56, 0.22), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(22, 138, 78, 0.20), transparent 44%),
+        radial-gradient(circle at 50% 95%, rgba(241, 196, 15, 0.10), transparent 50%),
+        #090d12;
+    }
+
+    body.christmas-mode .brand-icon {
+      background: linear-gradient(135deg, #d62828 0%, #b5173a 55%, #1b8a5a 100%);
+      box-shadow: 0 4px 18px rgba(214, 40, 40, 0.48), 0 0 12px rgba(241, 196, 15, 0.25);
+    }
+
+    body.christmas-mode .v3-badge {
+      background: linear-gradient(135deg, rgba(214, 40, 40, 0.45), rgba(27, 138, 90, 0.45));
+      border-color: rgba(241, 196, 15, 0.55);
+      color: #fff8dc;
+    }
+
+    body.christmas-mode .card,
+    body.christmas-mode .profile-card,
+    body.christmas-mode .media-card {
+      border-color: rgba(241, 196, 15, 0.22);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    body.christmas-mode .btn-main {
+      background: linear-gradient(135deg, #d62828 0%, #c1121f 45%, #e67e22 100%);
+      box-shadow: 0 8px 24px rgba(214, 40, 40, 0.42);
+    }
+
+    body.christmas-mode .status-pill {
+      border-color: rgba(241, 196, 15, 0.3);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .xmas-toggle-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--surface-glass);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .xmas-toggle-btn:active { transform: scale(0.92); }
+    body.christmas-mode .xmas-toggle-btn {
+      background: rgba(214, 40, 40, 0.22);
+      border-color: rgba(241, 196, 15, 0.55);
+      box-shadow: 0 0 12px rgba(241, 196, 15, 0.3);
+    }
+
+    /* Luces navideñas superiores */
+    .xmas-lights {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 22px;
+      pointer-events: none;
+      z-index: 90;
+      display: none;
+      justify-content: space-around;
+      align-items: flex-start;
+      overflow: hidden;
+      padding: 0 8px;
+    }
+    body.christmas-mode .xmas-lights {
+      display: flex;
+    }
+    .xmas-lights::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .xmas-bulb {
+      width: 8px;
+      height: 11px;
+      border-radius: 50% 50% 55% 55%;
+      margin-top: 2px;
+      animation: xmasGlow 2.4s ease-in-out infinite alternate;
+    }
+    .xmas-bulb.red { background: #ff4d4f; box-shadow: 0 2px 10px #ff4d4f; animation-delay: 0s; }
+    .xmas-bulb.gold { background: #ffd166; box-shadow: 0 2px 10px #ffd166; animation-delay: 0.6s; }
+    .xmas-bulb.green { background: #2ec4b6; box-shadow: 0 2px 10px #2ec4b6; animation-delay: 1.2s; }
+    .xmas-bulb.warm { background: #fff3b0; box-shadow: 0 2px 10px #fff3b0; animation-delay: 1.8s; }
+
+    @keyframes xmasGlow {
+      0% { opacity: 0.48; transform: scale(0.92); }
+      100% { opacity: 1; transform: scale(1.08); }
+    }
+
+    /* Canvas de nieve suave */
+    #xmasSnowCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 80;
+      display: none;
+    }
+    body.christmas-mode #xmasSnowCanvas {
+      display: block;
+    }
+
     /* Spinner */
     .spinner {
       display: inline-block;
@@ -1123,7 +1244,24 @@
     })();
   </script>
 </head>
-<body>
+<body class="christmas-mode">
+
+  <!-- Decoración Navideña: Luces y Nieve -->
+  <div class="xmas-lights" aria-hidden="true">
+    <span class="xmas-bulb red"></span>
+    <span class="xmas-bulb gold"></span>
+    <span class="xmas-bulb green"></span>
+    <span class="xmas-bulb warm"></span>
+    <span class="xmas-bulb red"></span>
+    <span class="xmas-bulb gold"></span>
+    <span class="xmas-bulb green"></span>
+    <span class="xmas-bulb warm"></span>
+    <span class="xmas-bulb red"></span>
+    <span class="xmas-bulb gold"></span>
+    <span class="xmas-bulb green"></span>
+    <span class="xmas-bulb warm"></span>
+  </div>
+  <canvas id="xmasSnowCanvas" aria-hidden="true"></canvas>
 
   <!-- Header -->
   <header>
@@ -1132,15 +1270,18 @@
         <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
       </div>
       <div class="brand-text">
-        <h1>IG Saver Pro <span class="v3-badge">V3.1</span></h1>
-        <p>Buscador • Destacadas • Historias Anónimas</p>
+        <h1>IG Saver Pro <span class="v3-badge" id="v3Badge">V3.1 🎄</span></h1>
+        <p id="brandSubtitle">❄️ Buscador • Destacadas • Historias</p>
       </div>
     </div>
 
-    <div class="status-pill" id="headerStatusPill" onclick="openAccountsModal()">
-      <div id="statusDot" class="status-dot"></div>
-      <span id="statusLabel">Sesión</span>
-      <svg class="status-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+    <div class="header-actions">
+      <button class="xmas-toggle-btn" id="xmasToggleBtn" onclick="toggleChristmasMode()" title="Activar / Desactivar Modo Navideño">🎄</button>
+      <div class="status-pill" id="headerStatusPill" onclick="openAccountsModal()">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusLabel">Sesión</span>
+        <svg class="status-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+      </div>
     </div>
   </header>
 
@@ -2740,6 +2881,94 @@
     checkStatus();
     renderFavoritesBar();
     renderRecentsBar();
+
+    /* ==================== MODO NAVIDEÑO 🎄❄️ ==================== */
+    let _xmasAnimId = null;
+    let _xmasFlakes = [];
+
+    function initChristmasMode() {
+      const saved = localStorage.getItem('ig_christmas_mode');
+      const enabled = saved === null ? true : saved === '1';
+      applyChristmasMode(enabled);
+    }
+
+    function toggleChristmasMode() {
+      const isNowOn = !document.body.classList.contains('christmas-mode');
+      localStorage.setItem('ig_christmas_mode', isNowOn ? '1' : '0');
+      applyChristmasMode(isNowOn);
+    }
+
+    function applyChristmasMode(enabled) {
+      document.body.classList.toggle('christmas-mode', enabled);
+      const badge = document.getElementById('v3Badge');
+      const sub = document.getElementById('brandSubtitle');
+      const btn = document.getElementById('xmasToggleBtn');
+      if (badge) badge.textContent = enabled ? 'V3.1 🎄' : 'V3.1';
+      if (sub) sub.textContent = enabled ? '❄️ Buscador • Destacadas • Historias' : 'Buscador • Destacadas • Historias Anónimas';
+      if (btn) btn.style.opacity = enabled ? '1' : '0.55';
+      if (enabled) startSnowfall();
+      else stopSnowfall();
+    }
+
+    function startSnowfall() {
+      const canvas = document.getElementById('xmasSnowCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      if (_xmasFlakes.length === 0) {
+        const count = Math.min(48, Math.max(26, Math.floor(window.innerWidth / 14)));
+        for (let i = 0; i < count; i++) {
+          _xmasFlakes.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: 1.2 + Math.random() * 2.6,
+            vy: 0.45 + Math.random() * 1.1,
+            vx: (Math.random() - 0.5) * 0.45,
+            o: 0.25 + Math.random() * 0.55,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      if (_xmasAnimId) cancelAnimationFrame(_xmasAnimId);
+      function tick() {
+        if (!document.body.classList.contains('christmas-mode')) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const f of _xmasFlakes) {
+          f.phase += 0.015;
+          f.y += f.vy;
+          f.x += f.vx + Math.sin(f.phase) * 0.35;
+          if (f.y > canvas.height + 6) { f.y = -6; f.x = Math.random() * canvas.width; }
+          if (f.x > canvas.width + 6) f.x = -6;
+          if (f.x < -6) f.x = canvas.width + 6;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${f.o})`;
+          ctx.fill();
+        }
+        _xmasAnimId = requestAnimationFrame(tick);
+      }
+      _xmasAnimId = requestAnimationFrame(tick);
+    }
+
+    function stopSnowfall() {
+      if (_xmasAnimId) {
+        cancelAnimationFrame(_xmasAnimId);
+        _xmasAnimId = null;
+      }
+      const canvas = document.getElementById('xmasSnowCanvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    initChristmasMode();
   
     // ===== SEGUIDORES Y SEGUIDOS =====
     let _followState = { pk: null, username: '', type: 'followers', cursor: '', query: '', total: 0, loading: false, searchTimer: null };

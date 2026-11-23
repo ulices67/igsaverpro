@@ -28,6 +28,7 @@ struct ContentView: View {
     // Persistencia de Favoritos y Búsquedas Recientes
     @AppStorage("ig_fav_accounts") private var favAccountsJSON: String = "[]"
     @AppStorage("ig_recent_searches") private var recentSearchesJSON: String = "[]"
+    @AppStorage("ig_christmas_mode") private var isChristmasMode: Bool = true
 
     private var favoriteAccounts: [SavedAccount] {
         guard let data = favAccountsJSON.data(using: .utf8),
@@ -85,7 +86,32 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.04, green: 0.04, blue: 0.06).ignoresSafeArea()
+                if isChristmasMode {
+                    ZStack {
+                        Color(red: 0.035, green: 0.05, blue: 0.075)
+                        RadialGradient(
+                            colors: [Color.red.opacity(0.22), Color.clear],
+                            center: .topLeading,
+                            startRadius: 10,
+                            endRadius: 340
+                        )
+                        RadialGradient(
+                            colors: [Color.green.opacity(0.20), Color.clear],
+                            center: .topTrailing,
+                            startRadius: 10,
+                            endRadius: 340
+                        )
+                        RadialGradient(
+                            colors: [Color.yellow.opacity(0.08), Color.clear],
+                            center: .bottom,
+                            startRadius: 10,
+                            endRadius: 360
+                        )
+                    }
+                    .ignoresSafeArea()
+                } else {
+                    Color(red: 0.04, green: 0.04, blue: 0.06).ignoresSafeArea()
+                }
 
                 ScrollView {
                     VStack(spacing: 16) {
@@ -113,8 +139,21 @@ struct ContentView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 10)
+                    .padding(.top, isChristmasMode ? 18 : 10)
                     .padding(.bottom, 30)
+                }
+
+                if isChristmasMode {
+                    ChristmasSnowOverlayView()
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+
+                    VStack {
+                        ChristmasLightsGarlandView()
+                        Spacer()
+                    }
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
                 }
             }
             .preferredColorScheme(.dark)
@@ -181,34 +220,55 @@ struct ContentView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(LinearGradient(
-                            colors: [.orange, .pink, .purple],
+                            colors: isChristmasMode ? [.red, .pink, .green] : [.orange, .pink, .purple],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
                         .frame(width: 42, height: 42)
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 22, weight: .bold))
+                        .shadow(color: isChristmasMode ? Color.red.opacity(0.45) : Color.clear, radius: 8)
+                    Image(systemName: isChristmasMode ? "snowflake" : "arrow.down.circle.fill")
+                        .font(.system(size: 21, weight: .bold))
                         .foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("IG Saver Pro")
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
-                        Text("V3.1")
+                            .lineLimit(1)
+                        Text(isChristmasMode ? "V3.1 🎄" : "V3.1")
                             .font(.system(size: 10, weight: .heavy))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundColor(isChristmasMode ? .yellow : .white.opacity(0.9))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.14))
+                            .background(isChristmasMode ? Color.red.opacity(0.32) : Color.white.opacity(0.14))
+                            .overlay(
+                                Capsule().stroke(isChristmasMode ? Color.yellow.opacity(0.45) : Color.clear, lineWidth: 1)
+                            )
                             .clipShape(Capsule())
                     }
-                    Text("Buscador · Destacadas · Historias Anónimas")
+                    Text(isChristmasMode ? "❄️ Buscador · Destacadas · Historias" : "Buscador · Destacadas · Historias Anónimas")
                         .font(.system(size: 11))
                         .foregroundColor(.gray)
+                        .lineLimit(1)
                 }
             }
             Spacer()
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    isChristmasMode.toggle()
+                }
+            } label: {
+                Text("🎄")
+                    .font(.system(size: 15))
+                    .frame(width: 32, height: 32)
+                    .background(isChristmasMode ? Color.red.opacity(0.24) : Color.white.opacity(0.08))
+                    .overlay(
+                        Circle().stroke(isChristmasMode ? Color.yellow.opacity(0.55) : Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .clipShape(Circle())
+                    .opacity(isChristmasMode ? 1.0 : 0.55)
+            }
             if api.savedAccounts.count > 1 {
                 Menu {
                     Section("Cambiar de Cuenta") {
@@ -3032,6 +3092,67 @@ struct FollowListSheetView: View {
         } catch {
             if reset {
                 errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
+
+// MARK: - Decoración Navideña (Nieve y Luces)
+struct ChristmasSnowOverlayView: View {
+    private let flakeCount = 38
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { context, size in
+                guard size.width > 0, size.height > 0 else { return }
+                for i in 0..<flakeCount {
+                    let seed = Double(i) * 1.61803398875
+                    let speed = 22.0 + (seed.truncatingRemainder(dividingBy: 1.0)) * 34.0
+                    let startX = ((Double(i) * 73.13).truncatingRemainder(dividingBy: 100.0)) / 100.0 * size.width
+                    let drift = sin(t * (0.7 + Double(i % 5) * 0.15) + seed * 6.0) * 18.0
+                    let y = (t * speed + Double(i) * 47.0).truncatingRemainder(dividingBy: size.height + 20.0) - 10.0
+                    let x = (startX + drift).truncatingRemainder(dividingBy: size.width)
+                    let finalX = x < 0 ? x + size.width : x
+                    let radius = 1.4 + Double(i % 4) * 0.65
+                    let opacity = 0.25 + Double(i % 5) * 0.12
+
+                    let rect = CGRect(x: finalX - radius, y: y - radius, width: radius * 2, height: radius * 2)
+                    context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(opacity)))
+                }
+            }
+        }
+    }
+}
+
+struct ChristmasLightsGarlandView: View {
+    @State private var glow = false
+    private let bulbColors: [Color] = [.red, .yellow, .green, Color(red: 1.0, green: 0.95, blue: 0.7)]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<12, id: \.self) { idx in
+                let color = bulbColors[idx % bulbColors.count]
+                let isEven = idx % 2 == 0
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(height: 1.5)
+                    Capsule()
+                        .fill(color)
+                        .frame(width: 7, height: 10)
+                        .shadow(color: color.opacity(glow == isEven ? 0.95 : 0.35), radius: glow == isEven ? 6 : 2)
+                        .opacity(glow == isEven ? 1.0 : 0.45)
+                        .padding(.top, 1)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.top, 2)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                glow = true
             }
         }
     }
