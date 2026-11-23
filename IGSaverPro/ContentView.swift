@@ -3102,25 +3102,35 @@ struct FollowListSheetView: View {
 struct ChristmasSnowOverlayView: View {
     private let flakeCount = 38
 
+    private func drawSnow(in context: inout GraphicsContext, size: CGSize, t: Double) {
+        let w = Double(size.width)
+        let h = Double(size.height)
+        guard w > 0, h > 0 else { return }
+        for i in 0..<flakeCount {
+            let di = Double(i)
+            let seed = di * 1.61803398875
+            let frac = seed.truncatingRemainder(dividingBy: 1.0)
+            let speed = 22.0 + frac * 34.0
+            let pct = (di * 73.13).truncatingRemainder(dividingBy: 100.0) / 100.0
+            let startX = pct * w
+            let freq = 0.7 + Double(i % 5) * 0.15
+            let drift = sin(t * freq + seed * 6.0) * 18.0
+            let yRaw = (t * speed + di * 47.0).truncatingRemainder(dividingBy: h + 20.0)
+            let y = yRaw - 10.0
+            let xRaw = (startX + drift).truncatingRemainder(dividingBy: w)
+            let x = xRaw < 0 ? xRaw + w : xRaw
+            let r = 1.4 + Double(i % 4) * 0.65
+            let op = 0.25 + Double(i % 5) * 0.12
+            let rect = CGRect(x: x - r, y: y - r, width: r * 2.0, height: r * 2.0)
+            context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(op)))
+        }
+    }
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             Canvas { context, size in
-                guard size.width > 0, size.height > 0 else { return }
-                for i in 0..<flakeCount {
-                    let seed = Double(i) * 1.61803398875
-                    let speed = 22.0 + (seed.truncatingRemainder(dividingBy: 1.0)) * 34.0
-                    let startX = ((Double(i) * 73.13).truncatingRemainder(dividingBy: 100.0)) / 100.0 * size.width
-                    let drift = sin(t * (0.7 + Double(i % 5) * 0.15) + seed * 6.0) * 18.0
-                    let y = (t * speed + Double(i) * 47.0).truncatingRemainder(dividingBy: size.height + 20.0) - 10.0
-                    let x = (startX + drift).truncatingRemainder(dividingBy: size.width)
-                    let finalX = x < 0 ? x + size.width : x
-                    let radius = 1.4 + Double(i % 4) * 0.65
-                    let opacity = 0.25 + Double(i % 5) * 0.12
-
-                    let rect = CGRect(x: finalX - radius, y: y - radius, width: radius * 2, height: radius * 2)
-                    context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(opacity)))
-                }
+                drawSnow(in: &context, size: size, t: t)
             }
         }
     }
