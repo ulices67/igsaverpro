@@ -257,7 +257,7 @@ struct ContentView: View {
                 isAppUnlocked = true
             }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             lockCheckDate = Date()
             if newPhase == .background {
                 if requiresLockScreen {
