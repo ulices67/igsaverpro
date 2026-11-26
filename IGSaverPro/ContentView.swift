@@ -2,8 +2,10 @@ import SwiftUI
 import AVFoundation
 import AVKit
 import WebKit
+import LocalAuthentication
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var api = APIClient()
     @State private var searchText = ""
     @State private var searchResults: [SearchUser] = []
@@ -20,15 +22,29 @@ struct ContentView: View {
     // Visor Anónimo de Historias (Item-bound atómico para evitar pantallas en negro)
     @State private var activeStorySession: StoryViewerSession?
 
-    // Hoja de Login y Detalle de Publicación
+    // Hoja de Login, Configuración y Detalle de Publicación
     @State private var showingLoginSheet = false
+    @State private var showingSettingsSheet = false
     @State private var selectedPost: PostItem?
     @State private var activeFollowList: FollowListSession?
 
-    // Persistencia de Favoritos y Búsquedas Recientes
+    // Persistencia de Favoritos, Búsquedas Recientes y Privacidad
     @AppStorage("ig_fav_accounts") private var favAccountsJSON: String = "[]"
     @AppStorage("ig_recent_searches") private var recentSearchesJSON: String = "[]"
     @AppStorage("ig_christmas_mode") private var isChristmasMode: Bool = true
+    @AppStorage("ig_faceid_enabled") private var faceIdEnabled: Bool = true
+    @AppStorage("ig_privacy_schedule_enabled") private var privacyScheduleEnabled: Bool = true
+
+    @State private var isAppUnlocked: Bool = false
+    @State private var lockCheckDate: Date = Date()
+
+    private var isSecretScheduleActive: Bool {
+        privacyScheduleEnabled && PrivacyScheduleHelper.isSecretChristmasWindow(date: lockCheckDate)
+    }
+
+    private var requiresLockScreen: Bool {
+        isSecretScheduleActive || faceIdEnabled
+    }
 
     private var favoriteAccounts: [SavedAccount] {
         guard let data = favAccountsJSON.data(using: .utf8),
@@ -84,7 +100,8 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            NavigationStack {
             ZStack {
                 if isChristmasMode {
                     ZStack {
@@ -210,6 +227,47 @@ struct ContentView: View {
             } message: {
                 Text(api.toastMessage ?? api.errorMessage ?? "")
             }
+            .sheet(isPresented: $showingSettingsSheet) {
+                SettingsSheetView(
+                    isChristmasMode: $isChristmasMode,
+                    faceIdEnabled: $faceIdEnabled,
+                    privacyScheduleEnabled: $privacyScheduleEnabled
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            }
+
+            if !isAppUnlocked && requiresLockScreen {
+                AppPrivacyGateView(
+                    isSecretChristmasMode: isSecretScheduleActive,
+                    onUnlock: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isAppUnlocked = true
+                        }
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(999)
+            }
+        }
+        .onAppear {
+            lockCheckDate = Date()
+            if !requiresLockScreen {
+                isAppUnlocked = true
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            lockCheckDate = Date()
+            if newPhase == .background {
+                if requiresLockScreen {
+                    isAppUnlocked = false
+                }
+            } else if newPhase == .active {
+                if !requiresLockScreen {
+                    isAppUnlocked = true
+                }
+            }
         }
     }
 
@@ -254,6 +312,19 @@ struct ContentView: View {
                 }
             }
             Spacer()
+            Button {
+                showingSettingsSheet = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .frame(width: 32, height: 32)
+                    .background(Color.white.opacity(0.08))
+                    .overlay(
+                        Circle().stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .clipShape(Circle())
+            }
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     isChristmasMode.toggle()
@@ -3167,3 +3238,389 @@ struct ChristmasLightsGarlandView: View {
         }
     }
 }
+
+// MARK: - Horario Secreto, Face ID y Configuración de Privacidad
+enum PrivacyScheduleHelper {
+    static let secretPasscode = "120624"
+
+    /// Activo de Lunes (2) a Viernes (6), de 19:00 (7:00 PM) a 21:59 (10:00 PM).
+    static func isSecretChristmasWindow(date: Date = Date()) -> Bool {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: date)
+        let hour = cal.component(.hour, from: date)
+        return (2...6).contains(weekday) && (19..<22).contains(hour)
+    }
+}
+
+struct SettingsSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var isChristmasMode: Bool
+    @Binding var faceIdEnabled: Bool
+    @Binding var privacyScheduleEnabled: Bool
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.05, green: 0.05, blue: 0.08).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Label("Privacidad y Acceso", systemImage: "lock.shield.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+
+                            Toggle(isOn: $faceIdEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Face ID al entrar")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Solicita autenticación biométrica al abrir la app")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            .tint(.pink)
+
+                            Divider().background(Color.white.opacity(0.08))
+
+                            Toggle(isOn: $privacyScheduleEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Pantalla de Privacidad")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Modo discreto programado (Lun–Vie, 7:00 PM – 10:00 PM)")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            .tint(.green)
+                        }
+                        .padding(16)
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                        )
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            Label("Apariencia", systemImage: "sparkles")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+
+                            Toggle(isOn: $isChristmasMode) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Modo Navideño 🎄")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Nieve, luces festivas y paleta invernal")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            .tint(.red)
+                        }
+                        .padding(16)
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                        )
+                    }
+                    .padding(16)
+                }
+            }
+            .navigationTitle("Configuración")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Listo") { dismiss() }
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct AppPrivacyGateView: View {
+    let isSecretChristmasMode: Bool
+    let onUnlock: () -> Void
+
+    @State private var enteredCode = ""
+    @State private var shakeOffset: CGFloat = 0
+    @State private var isAuthenticating = false
+    @State private var authError = ""
+
+    private var formattedFestiveDate: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_MX")
+        f.dateFormat = "EEEE, d 'de' MMMM"
+        return f.string(from: Date()).capitalized
+    }
+
+    var body: some View {
+        ZStack {
+            if isSecretChristmasMode {
+                secretChristmasGate
+            } else {
+                faceIdGate
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            if !isSecretChristmasMode {
+                authenticateWithFaceID()
+            }
+        }
+    }
+
+    private var secretChristmasGate: some View {
+        ZStack {
+            Color(red: 0.03, green: 0.055, blue: 0.085).ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.red.opacity(0.28), Color.clear],
+                center: .topLeading,
+                startRadius: 10,
+                endRadius: 360
+            ).ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.green.opacity(0.24), Color.clear],
+                center: .topTrailing,
+                startRadius: 10,
+                endRadius: 360
+            ).ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.yellow.opacity(0.10), Color.clear],
+                center: .bottom,
+                startRadius: 10,
+                endRadius: 380
+            ).ignoresSafeArea()
+
+            ChristmasSnowOverlayView()
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
+            VStack {
+                ChristmasLightsGarlandView()
+                Spacer()
+            }
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.red.opacity(0.35), Color.green.opacity(0.25)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 72, height: 72)
+                            .overlay(
+                                Circle().stroke(Color.yellow.opacity(0.45), lineWidth: 1.2)
+                            )
+                        Image(systemName: "snowflake")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundColor(.white)
+                            .shadow(color: .yellow.opacity(0.4), radius: 8)
+                    }
+
+                    Text("Felices Fiestas")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+
+                    Text(formattedFestiveDate)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.65))
+                }
+
+                // 6 puntos discretos de entrada
+                HStack(spacing: 14) {
+                    ForEach(0..<6, id: \.self) { idx in
+                        let filled = idx < enteredCode.count
+                        Circle()
+                            .fill(filled ? Color.white : Color.white.opacity(0.14))
+                            .frame(width: 12, height: 12)
+                            .overlay(
+                                Circle().stroke(Color.white.opacity(0.30), lineWidth: 1)
+                            )
+                            .scaleEffect(filled ? 1.12 : 1.0)
+                            .animation(.easeOut(duration: 0.12), value: enteredCode.count)
+                    }
+                }
+                .offset(x: shakeOffset)
+                .padding(.vertical, 6)
+
+                // Teclado numérico discreto
+                VStack(spacing: 12) {
+                    ForEach([[1, 2, 3], [4, 5, 6], [7, 8, 9]], id: \.self) { row in
+                        HStack(spacing: 22) {
+                            ForEach(row, id: \.self) { digit in
+                                keypadButton(label: "\(digit)") {
+                                    appendDigit("\(digit)")
+                                }
+                            }
+                        }
+                    }
+                    HStack(spacing: 22) {
+                        Button {
+                            enteredCode = ""
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white.opacity(0.55))
+                                .frame(width: 68, height: 68)
+                        }
+
+                        keypadButton(label: "0") {
+                            appendDigit("0")
+                        }
+
+                        Button {
+                            if !enteredCode.isEmpty {
+                                enteredCode.removeLast()
+                            }
+                        } label: {
+                            Image(systemName: "delete.left")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.white.opacity(0.75))
+                                .frame(width: 68, height: 68)
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func keypadButton(label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 26, weight: .medium, design: .rounded))
+                .foregroundColor(.white)
+                .frame(width: 68, height: 68)
+                .background(Color.white.opacity(0.10))
+                .overlay(
+                    Circle().stroke(Color.white.opacity(0.16), lineWidth: 1)
+                )
+                .clipShape(Circle())
+        }
+    }
+
+    private func appendDigit(_ d: String) {
+        guard enteredCode.count < 6 else { return }
+        enteredCode.append(d)
+        if enteredCode.count == 6 {
+            if enteredCode == PrivacyScheduleHelper.secretPasscode {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                onUnlock()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                withAnimation(.easeInOut(duration: 0.06).repeatCount(4, autoreverses: true)) {
+                    shakeOffset = 10
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                    shakeOffset = 0
+                    enteredCode = ""
+                }
+            }
+        }
+    }
+
+    private var faceIdGate: some View {
+        ZStack {
+            Color(red: 0.04, green: 0.04, blue: 0.06).ignoresSafeArea()
+            VStack(spacing: 22) {
+                Spacer()
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.purple.opacity(0.35), Color.pink.opacity(0.30)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 84, height: 84)
+                    Image(systemName: "faceid")
+                        .font(.system(size: 38, weight: .medium))
+                        .foregroundColor(.white)
+                }
+
+                VStack(spacing: 6) {
+                    Text("IG Saver Pro")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("Desbloquea con Face ID para continuar")
+                        .font(.system(size: 13))
+                        .foregroundColor(.gray)
+                }
+
+                if !authError.isEmpty {
+                    Text(authError)
+                        .font(.caption)
+                        .foregroundColor(.pink)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                }
+
+                Button {
+                    authenticateWithFaceID()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "faceid")
+                        Text(isAuthenticating ? "Verificando..." : "Desbloquear con Face ID")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 13)
+                    .background(
+                        LinearGradient(
+                            colors: [.purple, .pink, .orange],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(14)
+                }
+                .disabled(isAuthenticating)
+
+                Spacer()
+            }
+        }
+    }
+
+    private func authenticateWithFaceID() {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true
+        authError = ""
+        let context = LAContext()
+        context.localizedFallbackTitle = "Usar código del iPhone"
+        var err: NSError?
+        let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err)
+            ? .deviceOwnerAuthentication
+            : .deviceOwnerAuthenticationWithBiometrics
+
+        context.evaluatePolicy(policy, localizedReason: "Accede de forma privada a IG Saver Pro") { success, evalError in
+            DispatchQueue.main.async {
+                isAuthenticating = false
+                if success {
+                    onUnlock()
+                } else if let evalError {
+                    authError = evalError.localizedDescription
+                }
+            }
+        }
+    }
+}
+

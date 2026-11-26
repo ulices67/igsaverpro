@@ -22,6 +22,8 @@
 	<string>4</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usa Face ID para proteger el acceso privado a IG Saver Pro.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Necesitamos permiso para guardar historias, destacadas, publicaciones y fotos de perfil directamente en tu app Fotos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
