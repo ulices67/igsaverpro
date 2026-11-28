@@ -7,7 +7,7 @@ import CryptoKit
 
 @MainActor
 class APIClient: ObservableObject {
-    private let serverURL = APIClient.cloudWorkerURL
+    private var serverURL = APIClient.cloudWorkerURL
     private var installationToken: String?
     @Published private(set) var isServiceAvailable = false
     @Published var sessionStatus = SessionStatus(logged_in: false, user_id: nil, username: nil, session_file_exists: false)
@@ -16,6 +16,7 @@ class APIClient: ObservableObject {
     @Published var toastMessage: String?
     @Published var savedAccounts: [SavedLoginAccount] = []
     static let cloudWorkerURL = "https://igsaver-cloud.societext.workers.dev"
+    static let fallbackOriginURL = "https://igsaver-origin.onrender.com"
 
     private static let sessionKeyService = "com.igsaverpro.auth"
     private static let sessionKeyAccount = "instagram_sessionid"
@@ -356,11 +357,31 @@ class APIClient: ObservableObject {
         authenticated.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         // A sleeping cloud container needs time to start.
         authenticated.timeoutInterval = 90
+        func swappedToFallback(_ req: URLRequest) -> URLRequest? {
+            guard serverURL != APIClient.fallbackOriginURL,
+                  let raw = req.url?.absoluteString,
+                  raw.hasPrefix(APIClient.cloudWorkerURL) else { return nil }
+            let nextRaw = raw.replacingOccurrences(of: APIClient.cloudWorkerURL, with: APIClient.fallbackOriginURL)
+            guard let nextURL = URL(string: nextRaw) else { return nil }
+            var copy = req
+            copy.url = nextURL
+            serverURL = APIClient.fallbackOriginURL
+            return copy
+        }
+
         do {
-            let result = try await URLSession.shared.data(for: authenticated)
-            guard let response = result.1 as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            var result = try await URLSession.shared.data(for: authenticated)
+            guard var response = result.1 as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            if (response.statusCode == 429 || response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504),
+               let fallbackReq = swappedToFallback(authenticated) {
+                let retryResult = try await URLSession.shared.data(for: fallbackReq)
+                if let retryHttp = retryResult.1 as? HTTPURLResponse {
+                    result = retryResult
+                    response = retryHttp
+                }
+            }
             if !(200..<300).contains(response.statusCode) {
-                if response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504 { isServiceAvailable = false }
+                if response.statusCode == 429 || response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504 { isServiceAvailable = false }
                 let detail = (try? JSONDecoder().decode(LoginResponse.self, from: result.0))?.detail
                 let message = (detail != nil && !detail!.isEmpty)
                     ? detail!
@@ -373,6 +394,15 @@ class APIClient: ObservableObject {
             isServiceAvailable = true
             return result
         } catch let error as URLError {
+            if error.code != .notConnectedToInternet, error.code != .cancelled, let fallbackReq = swappedToFallback(authenticated) {
+                do {
+                    let retryResult = try await URLSession.shared.data(for: fallbackReq)
+                    if let retryHttp = retryResult.1 as? HTTPURLResponse, (200..<300).contains(retryHttp.statusCode) {
+                        isServiceAvailable = true
+                        return retryResult
+                    }
+                } catch {}
+            }
             isServiceAvailable = false
             let message = error.code == .notConnectedToInternet
                 ? "No hay conexión a internet. Revisa el Wi-Fi o tus datos móviles."
@@ -819,34 +849,36 @@ class APIClient: ObservableObject {
     // MARK: - Conexión Directa en la Nube y Diagnóstico
     func pingCloudServers() async -> (gateway: Bool, backend: Bool, latencyMs: Int, message: String) {
         let startTime = CFAbsoluteTimeGetCurrent()
-        guard let healthURL = URL(string: "\(APIClient.cloudWorkerURL)/cloud-health") else {
-            return (false, false, 0, "URL del servidor no válida")
-        }
         var gwOk = false
         var beOk = false
         var latency = 0
-        do {
-            var req = URLRequest(url: healthURL)
-            req.timeoutInterval = 10
-            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
-                gwOk = true
-                latency = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if let beStatus = json["backend"] as? String {
-                        beOk = (beStatus == "online")
-                    } else if let origin = json["origin"] as? [String: Any], let ready = origin["ready"] as? Bool {
-                        beOk = ready
+        for base in [APIClient.cloudWorkerURL, APIClient.fallbackOriginURL] {
+            guard let healthURL = URL(string: "\(base)/cloud-health") else { continue }
+            do {
+                var req = URLRequest(url: healthURL)
+                req.timeoutInterval = 10
+                req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+                let (data, resp) = try await URLSession.shared.data(for: req)
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+                    gwOk = true
+                    latency = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+                    serverURL = base
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let beStatus = json["backend"] as? String {
+                            beOk = (beStatus == "online")
+                        } else if let origin = json["origin"] as? [String: Any], let ready = origin["ready"] as? Bool {
+                            beOk = ready
+                        }
                     }
+                    if beOk { break }
                 }
+            } catch {
+                print("[CloudHealth] Ping falló (\(base)): \(error)")
             }
-        } catch {
-            print("[CloudHealth] Ping falló: \(error)")
         }
 
         if !beOk {
-            if let statusURL = URL(string: "\(APIClient.cloudWorkerURL)/api/status") {
+            if let statusURL = URL(string: "\(serverURL)/api/status") {
                 do {
                     _ = try await self.requestData(for: URLRequest(url: statusURL))
                     beOk = true
